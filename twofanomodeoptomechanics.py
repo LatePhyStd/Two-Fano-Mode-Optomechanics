@@ -2727,3 +2727,609 @@ def neff_2d(
 
     return neff
 
+
+
+# --------------------- bare optical two-mode analysis -------------------------
+
+def optical_G1(ka, kd1, lbd1):
+    """Bare optical coupling G1 = lbd1 - 1j*sqrt(ka*kd1)."""
+    return lbd1 - 1j*sqrt(ka)*sqrt(kd1)
+
+
+def optical_G2(ka, kd2, lbd2):
+    """Bare optical coupling G2 = lbd2 - 1j*sqrt(ka*kd2)."""
+    return lbd2 - 1j*sqrt(ka)*sqrt(kd2)
+
+
+def optical_K12(kd1, kd2):
+    """Bare mirror-mode dissipative coupling K12 = sqrt(kd1*kd2)."""
+    return sqrt(kd1)*sqrt(kd2)
+
+
+def optical_kbar(kd1, kd2):
+    """Average mirror linewidth kbar = (kd1 + kd2)/2."""
+    return (kd1 + kd2)/2
+
+
+def optical_lbdbar(lbd1, lbd2):
+    """Average coherent coupling lbdbar = (lbd1 + lbd2)/2."""
+    return (lbd1 + lbd2)/2
+
+
+def optical_bare_parameters(ka, kd1, kd2, lbd1, lbd2):
+    """
+    Return useful bare optical parameters:
+
+        G1 = lbd1 - 1j*sqrt(ka*kd1)
+        G2 = lbd2 - 1j*sqrt(ka*kd2)
+        K12 = sqrt(kd1*kd2)
+        kbar = (kd1 + kd2)/2
+        lbdbar = (lbd1 + lbd2)/2
+    """
+    G1 = optical_G1(ka, kd1, lbd1)
+    G2 = optical_G2(ka, kd2, lbd2)
+    K12 = optical_K12(kd1, kd2)
+    kbar = optical_kbar(kd1, kd2)
+    lbdbar = optical_lbdbar(lbd1, lbd2)
+
+    return G1, G2, K12, kbar, lbdbar
+
+
+def U_BD():
+    """
+    Basis transformation from (a,d1,d2) to (a,dB,dD).
+
+        dB = (d1 + d2)/sqrt(2)
+        dD = (d1 - d2)/sqrt(2)
+
+    Therefore
+
+        [a, dB, dD]^T = U_BD [a, d1, d2]^T.
+    """
+    return np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, 1/sqrt(2), 1/sqrt(2)],
+        [0.0, 1/sqrt(2), -1/sqrt(2)]
+    ], dtype=complex)
+
+
+def Hbare_ad1d2(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2):
+    """
+    Bare optical non-Hermitian matrix in the (a,d1,d2) basis.
+
+        H =
+        [[wa  - 1j*(ka + ga),  G1,            G2],
+         [G1,                   wd1 - 1j*kd1, -1j*K12],
+         [G2,                  -1j*K12,       wd2 - 1j*kd2]]
+
+    with
+
+        G1  = lbd1 - 1j*sqrt(ka*kd1)
+        G2  = lbd2 - 1j*sqrt(ka*kd2)
+        K12 = sqrt(kd1*kd2).
+    """
+    G1 = optical_G1(ka, kd1, lbd1)
+    G2 = optical_G2(ka, kd2, lbd2)
+    K12 = optical_K12(kd1, kd2)
+
+    return np.array([
+        [wa - 1j*(ka + ga), G1, G2],
+        [G1, wd1 - 1j*kd1, -1j*K12],
+        [G2, -1j*K12, wd2 - 1j*kd2]
+    ], dtype=complex)
+
+
+def Hbare_aBdD(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2):
+    """
+    Bare optical non-Hermitian matrix in the (a,dB,dD) basis.
+
+        H_aBdD = U_BD H_ad1d2 U_BD.T
+
+    Since U_BD is real orthogonal, U_BD.T is its inverse.
+    """
+    U = U_BD()
+    H = Hbare_ad1d2(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2)
+
+    return U @ H @ U.T
+
+
+def sorted_eigvals(vals):
+    """Sort complex eigenvalues by real part and then imaginary part."""
+    return np.array(sorted(vals, key=lambda z: (np.real(z), np.imag(z))), dtype=complex)
+
+
+def eigs_ad1d2(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2):
+    """Eigenvalues of Hbare_ad1d2 sorted by real part."""
+    return sorted_eigvals(
+        np.linalg.eigvals(Hbare_ad1d2(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2))
+    )
+
+
+def eigs_aBdD(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2):
+    """Eigenvalues of Hbare_aBdD sorted by real part."""
+    return sorted_eigvals(
+        np.linalg.eigvals(Hbare_aBdD(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2))
+    )
+
+
+def check_bare_basis_exactness(
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+    rtol=1e-10, atol=1e-12
+):
+    """
+    Check that the bare optical eigenvalues are identical in the
+    (a,d1,d2) and (a,dB,dD) bases.
+
+    Returns:
+        ok, eigs_ad1d2, eigs_aBdD, max_err
+    """
+    vals_ad1d2 = eigs_ad1d2(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2)
+    vals_aBdD = eigs_aBdD(ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2)
+
+    ok = np.allclose(vals_ad1d2, vals_aBdD, rtol=rtol, atol=atol)
+    max_err = np.max(np.abs(vals_ad1d2 - vals_aBdD))
+
+    return ok, vals_ad1d2, vals_aBdD, max_err
+
+
+def set_bare_scan_parameter(
+    xname, x,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+):
+    """
+    Set one bare optical scan parameter.
+
+    Supported xname values:
+
+        "gamma_a", "ga"
+        "kappa_a", "ka"
+        "kappa_dbar", "kdbar"
+        "kbar", "kappabar"
+        "Delta_dbar", "wdbar"
+        "Deltabar"
+        "lambdabar", "lbdbar"
+        "K", "K12"
+
+    Conventions:
+
+        kappa_dbar = (kd1 + kd2)/2
+        kbar = kappabar = (ka + ga + kd1 + kd2)/3
+        Delta_dbar = (wd1 + wd2)/2
+        Deltabar = (wa + wd1 + wd2)/3
+        lambdabar = (lbd1 + lbd2)/2
+        K = K12 = sqrt(kd1*kd2)
+
+    For kappa_dbar, Delta_dbar, and lambdabar, the corresponding
+    difference between the two mirror modes is kept fixed.
+
+    For kbar, ka, kd1, and kd2 are shifted together while ga is kept fixed.
+
+    For Deltabar, wa, wd1, and wd2 are shifted together.
+
+    For K, the ratio kd1/kd2 is kept fixed.
+    """
+    if xname in ["gamma_a", "ga"]:
+        ga = x
+
+    elif xname in ["kappa_a", "ka"]:
+        ka = x
+
+    elif xname in ["kappa_dbar", "kdbar"]:
+        dkd = (kd1 - kd2)/2
+        kd1 = x + dkd
+        kd2 = x - dkd
+
+    elif xname in ["kbar", "kappabar"]:
+        kbar0 = optical_kappabar_full(ga, ka, kd1, kd2)
+        dk = x - kbar0
+        ka = ka + dk
+        kd1 = kd1 + dk
+        kd2 = kd2 + dk
+
+    elif xname in ["Delta_dbar", "wdbar"]:
+        dwd = (wd1 - wd2)/2
+        wd1 = x + dwd
+        wd2 = x - dwd
+
+    elif xname == "Deltabar":
+        Deltabar0 = optical_Deltabar(wa, wd1, wd2)
+        dD = x - Deltabar0
+        wa = wa + dD
+        wd1 = wd1 + dD
+        wd2 = wd2 + dD
+
+    elif xname in ["lambdabar", "lbdbar"]:
+        dlbd = (lbd1 - lbd2)/2
+        lbd1 = x + dlbd
+        lbd2 = x - dlbd
+
+    elif xname in ["K", "K12"]:
+        ratio = kd1/kd2
+        sr = sqrt(ratio)
+        kd1 = x*sr
+        kd2 = x/sr
+
+    else:
+        raise ValueError("Unsupported xname = " + str(xname))
+
+    return ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+
+
+def scan_bare_eigs(
+    xvals, xname,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+    basis="ad1d2"
+):
+    """
+    Scan the three bare optical eigenvalues versus one parameter.
+
+    basis can be:
+        "ad1d2" for the (a,d1,d2) basis
+        "aBdD" for the (a,dB,dD) basis
+
+    Returns:
+        eigs, shape = (len(xvals), 3)
+    """
+    vals = np.zeros((len(xvals), 3), dtype=complex)
+
+    for i, x in enumerate(xvals):
+        pars = set_bare_scan_parameter(
+            xname, x,
+            ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+        )
+
+        if basis == "ad1d2":
+            vals[i] = eigs_ad1d2(*pars)
+        elif basis == "aBdD":
+            vals[i] = eigs_aBdD(*pars)
+        else:
+            raise ValueError("basis must be 'ad1d2' or 'aBdD'")
+
+    return vals
+
+
+def scan_bare_basis_exactness(
+    xvals, xname,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+    rtol=1e-10, atol=1e-12
+):
+    """
+    Scan eigenvalues in both bases and check exactness over the full scan.
+
+    Returns:
+        ok, eigs_ad1d2_scan, eigs_aBdD_scan, max_err
+    """
+    vals_ad1d2 = scan_bare_eigs(
+        xvals, xname,
+        ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+        basis="ad1d2"
+    )
+
+    vals_aBdD = scan_bare_eigs(
+        xvals, xname,
+        ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+        basis="aBdD"
+    )
+
+    ok = np.allclose(vals_ad1d2, vals_aBdD, rtol=rtol, atol=atol)
+    max_err = np.max(np.abs(vals_ad1d2 - vals_aBdD))
+
+    return ok, vals_ad1d2, vals_aBdD, max_err
+
+
+def kappa_from_bare_eigs(eigs):
+    """
+    Convert complex bare optical eigenvalues to linewidths:
+
+        k_i = -Im(Omega_i).
+    """
+    return -np.imag(eigs)
+
+
+def bare_eig_real_parts(eigs):
+    """Return Re(Omega_i) from complex bare optical eigenvalues."""
+    return np.real(eigs)
+
+
+def bare_eig_imag_parts(eigs):
+    """Return Im(Omega_i) from complex bare optical eigenvalues."""
+    return np.imag(eigs)
+
+
+def bare_kappa_minima(xvals, eigs):
+    """
+    Find the minimum of each linewidth branch
+
+        k_i(x) = -Im(Omega_i(x)).
+
+    Returns a dictionary with branch minima and the global minimum.
+    """
+    kappas = kappa_from_bare_eigs(eigs)
+    out = {}
+
+    for i in range(3):
+        j = np.argmin(kappas[:, i])
+        out["k" + str(i + 1) + "_min"] = kappas[j, i]
+        out["x_at_k" + str(i + 1) + "_min"] = xvals[j]
+        out["Omega" + str(i + 1) + "_at_k" + str(i + 1) + "_min"] = eigs[j, i]
+
+    jflat = np.argmin(kappas)
+    ix, imode = np.unravel_index(jflat, kappas.shape)
+
+    out["k_global_min"] = kappas[ix, imode]
+    out["x_at_k_global_min"] = xvals[ix]
+    out["mode_of_k_global_min"] = imode + 1
+    out["Omega_at_k_global_min"] = eigs[ix, imode]
+
+    return out
+
+
+def scan_bare_kappa_minima(
+    xvals, xname,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+    basis="ad1d2"
+):
+    """
+    Scan bare optical eigenvalues and return the linewidth minima.
+
+    Returns:
+        eigs, minima
+    """
+    eigs = scan_bare_eigs(
+        xvals, xname,
+        ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+        basis=basis
+    )
+
+    minima = bare_kappa_minima(xvals, eigs)
+
+    return eigs, minima
+
+
+# -------- centered bare optical eigenvalue scans for figure files -------------
+
+def optical_wdbar(wd1, wd2):
+    """Average mirror-mode detuning/frequency wdbar = (wd1 + wd2)/2."""
+    return (wd1 + wd2)/2
+
+
+def optical_Deltabar(wa, wd1, wd2):
+    """
+    Average optical detuning/frequency
+
+        Deltabar = (wa + 2*wdbar)/3
+                 = (wa + wd1 + wd2)/3.
+    """
+    return (wa + wd1 + wd2)/3
+
+
+def optical_kappabar_full(ga, ka, kd1, kd2):
+    """
+    Average optical linewidth
+
+        kappabar = (ka + ga + 2*kdbar)/3
+                 = (ka + ga + kd1 + kd2)/3.
+    """
+    return (ka + ga + kd1 + kd2)/3
+
+
+def set_centered_bare_scan_parameter(
+    xname, x,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+):
+    """
+    Set one scan parameter for centered bare optical eigenvalue plots.
+
+    Supported xname values:
+
+        gamma_a, ga
+        kappa_a, ka
+        kappa_dbar, kdbar
+        kbar, kappabar
+        Delta_dbar, wdbar
+        Deltabar
+        lambdabar, lbdbar
+        K, K12
+
+    Conventions:
+
+        kappa_dbar = (kd1 + kd2)/2
+        kbar = kappabar = (ka + ga + kd1 + kd2)/3
+        Delta_dbar = (wd1 + wd2)/2
+        Deltabar = (wa + wd1 + wd2)/3
+        lambdabar = (lbd1 + lbd2)/2
+        K = K12 = sqrt(kd1*kd2)
+
+    For kappa_dbar, wdbar, and lambdabar, the corresponding difference
+    between the two mirror modes is kept fixed.
+
+    For kbar, ka, kd1, and kd2 are shifted together while ga is kept fixed.
+
+    For Deltabar, wa, wd1, and wd2 are shifted together.
+
+    For K, the ratio kd1/kd2 is kept fixed.
+    """
+    if xname in ["gamma_a", "ga"]:
+        ga = x
+
+    elif xname in ["kappa_a", "ka"]:
+        ka = x
+
+    elif xname in ["kappa_dbar", "kdbar"]:
+        dkd = (kd1 - kd2)/2
+        kd1 = x + dkd
+        kd2 = x - dkd
+
+    elif xname in ["kbar", "kappabar"]:
+        kbar0 = optical_kappabar_full(ga, ka, kd1, kd2)
+        dk = x - kbar0
+        ka = ka + dk
+        kd1 = kd1 + dk
+        kd2 = kd2 + dk
+
+    elif xname in ["Delta_dbar", "wdbar"]:
+        dwd = (wd1 - wd2)/2
+        wd1 = x + dwd
+        wd2 = x - dwd
+
+    elif xname in ["Deltabar"]:
+        Deltabar0 = optical_Deltabar(wa, wd1, wd2)
+        dD = x - Deltabar0
+        wa = wa + dD
+        wd1 = wd1 + dD
+        wd2 = wd2 + dD
+
+    elif xname in ["lambdabar", "lbdbar"]:
+        dlbd = (lbd1 - lbd2)/2
+        lbd1 = x + dlbd
+        lbd2 = x - dlbd
+
+    elif xname in ["K", "K12"]:
+        ratio = kd1/kd2
+        sr = sqrt(ratio)
+        kd1 = x*sr
+        kd2 = x/sr
+
+    else:
+        raise ValueError("Unsupported xname = " + str(xname))
+
+    return ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+
+
+def scan_centered_bare_eigs(
+    xvals, xname,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+    basis="ad1d2"
+):
+    """
+    Scan bare optical eigenvalues and return centered real and imaginary parts.
+
+    The raw eigenvalues are Omega_i.
+
+    The centered quantities are
+
+        Re_centered_i = Re(Omega_i) - Deltabar
+
+    and
+
+        Im_centered_i = Im(Omega_i) + kappabar,
+
+    because for a bare optical eigenvalue
+
+        Omega_i = Re(Omega_i) - 1j*kappa_i,
+
+    and therefore Im(Omega_i) = -kappa_i.
+
+    Returns:
+        eigs          : complex array, shape (len(xvals), 3)
+        real_centered : real array, shape (len(xvals), 3)
+        imag_centered : real array, shape (len(xvals), 3)
+        Deltabar      : real array, shape (len(xvals),)
+        kappabar      : real array, shape (len(xvals),)
+    """
+    eigs = np.zeros((len(xvals), 3), dtype=complex)
+    Deltabar = np.zeros(len(xvals), dtype=float)
+    kappabar = np.zeros(len(xvals), dtype=float)
+
+    for i, x in enumerate(xvals):
+        pars = set_centered_bare_scan_parameter(
+            xname, x,
+            ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+        )
+
+        ga_i, ka_i, kd1_i, kd2_i, lbd1_i, lbd2_i, wa_i, wd1_i, wd2_i = pars
+
+        if basis == "ad1d2":
+            eigs[i] = eigs_ad1d2(*pars)
+        elif basis == "aBdD":
+            eigs[i] = eigs_aBdD(*pars)
+        else:
+            raise ValueError("basis must be 'ad1d2' or 'aBdD'")
+
+        Deltabar[i] = optical_Deltabar(wa_i, wd1_i, wd2_i)
+        kappabar[i] = optical_kappabar_full(ga_i, ka_i, kd1_i, kd2_i)
+
+    real_centered = np.real(eigs) - Deltabar[:, None]
+    imag_centered = np.imag(eigs) + kappabar[:, None]
+
+    return eigs, real_centered, imag_centered, Deltabar, kappabar
+
+
+def scan_centered_bare_eigs_both_bases(
+    xvals, xname,
+    ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+    rtol=1e-10, atol=1e-12
+):
+    """
+    Scan centered bare optical eigenvalues in both bases.
+
+    Returns:
+        ok
+        max_err
+        eigs_ad1d2_scan
+        eigs_aBdD_scan
+        real_centered
+        imag_centered
+        Deltabar
+        kappabar
+
+    The centered real/imaginary arrays are computed from the ad1d2 basis.
+    """
+    eigs1, real_centered, imag_centered, Deltabar, kappabar = scan_centered_bare_eigs(
+        xvals, xname,
+        ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+        basis="ad1d2"
+    )
+
+    eigs2 = scan_centered_bare_eigs(
+        xvals, xname,
+        ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2,
+        basis="aBdD"
+    )[0]
+
+    ok = np.allclose(eigs1, eigs2, rtol=rtol, atol=atol)
+    max_err = np.max(np.abs(eigs1 - eigs2))
+
+    return ok, max_err, eigs1, eigs2, real_centered, imag_centered, Deltabar, kappabar
+
+
+def centered_kappa_from_bare_eigs(eigs, kappabar):
+    """
+    Return centered linewidths
+
+        kappa_i - kappabar,
+
+    where kappa_i = -Im(Omega_i).
+    """
+    return -np.imag(eigs) - np.asarray(kappabar)[:, None]
+
+
+def centered_bare_kappa_minima(xvals, eigs, kappabar):
+    """
+    Find minima of the absolute linewidths kappa_i = -Im(Omega_i)
+    and also return centered linewidths kappa_i - kappabar.
+    """
+    kappas = -np.imag(eigs)
+    kappas_centered = kappas - np.asarray(kappabar)[:, None]
+
+    out = {}
+
+    for i in range(3):
+        j = np.argmin(kappas[:, i])
+        out["k" + str(i + 1) + "_min"] = kappas[j, i]
+        out["k" + str(i + 1) + "_min_centered"] = kappas_centered[j, i]
+        out["x_at_k" + str(i + 1) + "_min"] = xvals[j]
+        out["Omega" + str(i + 1) + "_at_k" + str(i + 1) + "_min"] = eigs[j, i]
+
+    jflat = np.argmin(kappas)
+    ix, imode = np.unravel_index(jflat, kappas.shape)
+
+    out["k_global_min"] = kappas[ix, imode]
+    out["k_global_min_centered"] = kappas_centered[ix, imode]
+    out["x_at_k_global_min"] = xvals[ix]
+    out["mode_of_k_global_min"] = imode + 1
+    out["Omega_at_k_global_min"] = eigs[ix, imode]
+
+    return out
+
+
