@@ -63,6 +63,7 @@ import numpy as np
 from scipy import linalg as scilin
 from numpy import exp, pi, abs, conjugate, sqrt, arctan, real, imag
 from multiprocessing import Pool
+from itertools import permutations
 atan = arctan
 re = real
 im = imag
