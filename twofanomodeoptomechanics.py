@@ -3521,6 +3521,11 @@ def plot_HaBD_eigs_vs_lbdbar_panels(
     return fig, axs
 
 
+# =============================================================================
+# Bare optical eigenvalue scans for plotting
+# =============================================================================
+
+
 def track_eigs_continuously(vals_list):
     """
     Continuity-based tracking of 3 eigenvalue branches.
@@ -3551,12 +3556,28 @@ def scan_device_vs_lbdbar(sys, lbdbar_min_THz, lbdbar_max_THz, npts=501):
     """
     Scan H_aBD eigenvalues versus lambda_bar.
 
+    Inputs:
+        sys:
+            System object containing ga, ka, kd1, kd2, lbd1, lbd2,
+            wa, wd1, wd2, and w_scale.
+
+        lbdbar_min_THz, lbdbar_max_THz:
+            Scan range for lambda_bar/2pi in THz.
+
     Returns:
-        x_THz       = lambda_bar/2pi in THz
-        Delta_THz   = Re(Omega_i)/2pi in THz
-        kappa_THz   = k_i/2pi = -Im(Omega_i)/2pi in THz
-        eigs        = tracked complex eigenvalues
+        x_THz:
+            lambda_bar/2pi in THz.
+
+        Delta_THz:
+            Re(Omega_i)/2pi in THz.
+
+        kappa_THz:
+            k_i/2pi = -Im(Omega_i)/2pi in THz.
+
+        eigs:
+            tracked complex eigenvalues.
     """
+    TWOPI = 2*np.pi
     unit_THz = TWOPI * sys.w_scale * 1e12
 
     dlbd = 0.5*(sys.lbd1 - sys.lbd2)
@@ -3573,7 +3594,7 @@ def scan_device_vs_lbdbar(sys, lbdbar_min_THz, lbdbar_max_THz, npts=501):
         lbd1 = lbdbar + dlbd
         lbd2 = lbdbar - dlbd
 
-        H = module.Hbare_aBdD(
+        H = Hbare_aBdD(
             sys.ga, sys.ka, sys.kd1, sys.kd2,
             lbd1, lbd2,
             sys.wa, sys.wd1, sys.wd2,
@@ -3590,12 +3611,15 @@ def scan_device_vs_lbdbar(sys, lbdbar_min_THz, lbdbar_max_THz, npts=501):
     return x_THz, Delta_THz, kappa_THz, eigs
 
 
-
 def used_parameter_row(sys, name):
     """
-    Table-1-style summary of only the quantities used for this plot.
-    All optical-frequency-like quantities are shown as ordinary frequencies in THz.
+    Table-1-style summary of only the quantities used for the
+    lambda_bar scan plot.
+
+    All optical-frequency-like quantities are shown as ordinary
+    frequencies in THz, i.e. quantity / 2pi.
     """
+    TWOPI = 2*np.pi
     unit_THz = TWOPI * sys.w_scale * 1e12
 
     lbdbar = 0.5*(sys.lbd1 + sys.lbd2) / unit_THz
@@ -3618,6 +3642,7 @@ def used_parameter_row(sys, name):
         r"$\bar{\Delta}_d/2\pi$ (THz)": Ddbar,
         r"$\delta_{\Delta_d}/2\pi$ (THz)": dDd,
     }
+
 
 
 
