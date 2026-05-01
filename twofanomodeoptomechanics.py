@@ -3333,3 +3333,191 @@ def centered_bare_kappa_minima(xvals, eigs, kappabar):
     return out
 
 
+TWOPI = 2*np.pi
+
+
+def bare_lbdbar(sys):
+    """lambda_bar = (lambda_1 + lambda_2)/2"""
+    return 0.5*(sys.lbd1 + sys.lbd2)
+
+
+def bare_dlbd(sys):
+    """delta_lambda = (lambda_1 - lambda_2)/2"""
+    return 0.5*(sys.lbd1 - sys.lbd2)
+
+
+def track_eigs_HaBD_vs_lbdbar(sys, lbdbar_vals, module):
+    """
+    Continuity-tracked eigenvalues of Hbare_aBdD versus lambda_bar.
+    """
+    dlbd = bare_dlbd(sys)
+
+    mats = []
+    for lbdbar in lbdbar_vals:
+        lbd1 = lbdbar + dlbd
+        lbd2 = lbdbar - dlbd
+        mats.append(
+            module.Hbare_aBdD(
+                sys.ga, sys.ka, sys.kd1, sys.kd2,
+                lbd1, lbd2,
+                sys.wa, sys.wd1, sys.wd2
+            )
+        )
+
+    tracked = np.zeros((len(mats), 3), dtype=complex)
+
+    vals0 = np.linalg.eigvals(mats[0])
+    tracked[0] = vals0[np.argsort(vals0.real)]
+
+    perms = list(permutations(range(3)))
+
+    for k in range(1, len(mats)):
+        vals = np.linalg.eigvals(mats[k])
+
+        best_perm = None
+        best_cost = np.inf
+        for p in perms:
+            cost = sum(abs(tracked[k-1, i] - vals[p[i]]) for i in range(3))
+            if cost < best_cost:
+                best_cost = cost
+                best_perm = p
+
+        tracked[k] = vals[list(best_perm)]
+
+    return tracked
+
+
+def scan_HaBD_eigs_vs_lbdbar(
+    sys,
+    module,
+    npts=401,
+    scan_frac=0.8,
+    lbdbar_min_THz=None,
+    lbdbar_max_THz=None,
+):
+    """
+    Scan Re(Omega_i) and Im(Omega_i) of H_aBD versus lambda_bar.
+
+    Returns
+    -------
+    x_THz : array
+        lambda_bar / 2pi in THz
+    re_THz : array, shape (npts, 3)
+        Re(Omega_i) / 2pi in THz
+    kappa_MHz : array, shape (npts, 3)
+        kappa_i / 2pi = -Im(Omega_i)/2pi in MHz
+    eigs : array, shape (npts, 3)
+        complex eigenvalues
+    """
+    lbdbar0 = bare_lbdbar(sys)
+
+    if lbdbar_min_THz is None or lbdbar_max_THz is None:
+        lo = (1.0 - scan_frac)*lbdbar0
+        hi = (1.0 + scan_frac)*lbdbar0
+
+        # avoid accidental sign crossing if lambda_bar0 > 0
+        if np.real(lbdbar0) > 0 and lo <= 0:
+            lo = 1e-6*lbdbar0
+    else:
+        lo = TWOPI*sys.w_scale*1e12*lbdbar_min_THz
+        hi = TWOPI*sys.w_scale*1e12*lbdbar_max_THz
+
+    lbdbar_vals = np.linspace(lo, hi, npts)
+    eigs = track_eigs_HaBD_vs_lbdbar(sys, lbdbar_vals, module)
+
+    x_THz = lbdbar_vals / (TWOPI*sys.w_scale*1e12)
+    re_THz = eigs.real / (TWOPI*sys.w_scale*1e12)
+    kappa_MHz = (-eigs.imag) / (TWOPI*sys.w_scale*1e6)
+
+    return x_THz, re_THz, kappa_MHz, eigs
+
+
+def plot_HaBD_eigs_vs_lbdbar_panels(
+    devices,
+    module,
+    npts=401,
+    scan_frac=0.8,
+    lbdbar_overrides=None,
+    yfloor_re_THz=1e-12,
+    yfloor_kappa_MHz=1e-6,
+    figsize=None,
+):
+    """
+    Plot Re(Omega_i) and kappa_i = -Im(Omega_i) versus lambda_bar
+    for several devices in separate panels.
+
+    Parameters
+    ----------
+    devices : dict
+        Example: {"exp": sys_exp, "1": sys1, "2": sys2}
+    lbdbar_overrides : dict or None
+        Optional per-device scan ranges in THz:
+        {"2": (0.0, 0.35), "exp": (1.0, 10.0)}
+    """
+    ndev = len(devices)
+
+    if figsize is None:
+        figsize = (11.0, 3.4*ndev)
+
+    fig, axs = plt.subplots(ndev, 2, figsize=figsize, squeeze=False)
+
+    colors = ["C0", "C1", "C2"]
+    labels = [r"$\Omega_1$", r"$\Omega_2$", r"$\Omega_3$"]
+
+    for r, (name, sys) in enumerate(devices.items()):
+        if lbdbar_overrides is not None and name in lbdbar_overrides:
+            lmin, lmax = lbdbar_overrides[name]
+        else:
+            lmin, lmax = None, None
+
+        x_THz, re_THz, kappa_MHz, eigs = scan_HaBD_eigs_vs_lbdbar(
+            sys,
+            module,
+            npts=npts,
+            scan_frac=scan_frac,
+            lbdbar_min_THz=lmin,
+            lbdbar_max_THz=lmax,
+        )
+
+        axL = axs[r, 0]
+        axR = axs[r, 1]
+
+        for i in range(3):
+            axL.plot(
+                x_THz,
+                np.clip(re_THz[:, i], yfloor_re_THz, None),
+                color=colors[i],
+                lw=2,
+                label=labels[i],
+            )
+            axR.plot(
+                x_THz,
+                np.clip(kappa_MHz[:, i], yfloor_kappa_MHz, None),
+                color=colors[i],
+                lw=2,
+                label=labels[i],
+            )
+
+        axL.set_yscale("log")
+        axR.set_yscale("log")
+
+        axL.set_title(fr"Device {name}: $\mathrm{{Re}}(\Omega_i)$")
+        axR.set_title(fr"Device {name}: $\kappa_i=-\mathrm{{Im}}(\Omega_i)$")
+
+        axL.set_xlabel(r"$\bar{\lambda}/2\pi$ (THz)")
+        axR.set_xlabel(r"$\bar{\lambda}/2\pi$ (THz)")
+
+        axL.set_ylabel(r"$\mathrm{Re}(\Omega_i)/2\pi$ (THz)")
+        axR.set_ylabel(r"$\kappa_i/2\pi$ (MHz)")
+
+        axL.grid(alpha=0.3, which="both")
+        axR.grid(alpha=0.3, which="both")
+
+        if r == 0:
+            axL.legend(frameon=False, loc="best")
+            axR.legend(frameon=False, loc="best")
+
+    fig.tight_layout()
+    return fig, axs
+
+
