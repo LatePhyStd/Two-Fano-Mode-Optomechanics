@@ -3521,3 +3521,104 @@ def plot_HaBD_eigs_vs_lbdbar_panels(
     return fig, axs
 
 
+def track_eigs_continuously(vals_list):
+    """
+    Continuity-based tracking of 3 eigenvalue branches.
+    """
+    tracked = np.zeros((len(vals_list), 3), dtype=complex)
+    tracked[0] = vals_list[0][np.argsort(vals_list[0].real)]
+
+    perms = list(permutations(range(3)))
+
+    for k in range(1, len(vals_list)):
+        vals = vals_list[k]
+
+        best_cost = np.inf
+        best_perm = None
+
+        for p in perms:
+            cost = sum(abs(tracked[k - 1, i] - vals[p[i]]) for i in range(3))
+            if cost < best_cost:
+                best_cost = cost
+                best_perm = p
+
+        tracked[k] = vals[list(best_perm)]
+
+    return tracked
+
+
+def scan_device_vs_lbdbar(sys, lbdbar_min_THz, lbdbar_max_THz, npts=501):
+    """
+    Scan H_aBD eigenvalues versus lambda_bar.
+
+    Returns:
+        x_THz       = lambda_bar/2pi in THz
+        Delta_THz   = Re(Omega_i)/2pi in THz
+        kappa_THz   = k_i/2pi = -Im(Omega_i)/2pi in THz
+        eigs        = tracked complex eigenvalues
+    """
+    unit_THz = TWOPI * sys.w_scale * 1e12
+
+    dlbd = 0.5*(sys.lbd1 - sys.lbd2)
+
+    lbdbar_vals = np.linspace(
+        lbdbar_min_THz * unit_THz,
+        lbdbar_max_THz * unit_THz,
+        npts,
+    )
+
+    eigvals_raw = []
+
+    for lbdbar in lbdbar_vals:
+        lbd1 = lbdbar + dlbd
+        lbd2 = lbdbar - dlbd
+
+        H = module.Hbare_aBdD(
+            sys.ga, sys.ka, sys.kd1, sys.kd2,
+            lbd1, lbd2,
+            sys.wa, sys.wd1, sys.wd2,
+        )
+
+        eigvals_raw.append(np.linalg.eigvals(H))
+
+    eigs = track_eigs_continuously(eigvals_raw)
+
+    x_THz = lbdbar_vals / unit_THz
+    Delta_THz = eigs.real / unit_THz
+    kappa_THz = (-eigs.imag) / unit_THz
+
+    return x_THz, Delta_THz, kappa_THz, eigs
+
+
+
+def used_parameter_row(sys, name):
+    """
+    Table-1-style summary of only the quantities used for this plot.
+    All optical-frequency-like quantities are shown as ordinary frequencies in THz.
+    """
+    unit_THz = TWOPI * sys.w_scale * 1e12
+
+    lbdbar = 0.5*(sys.lbd1 + sys.lbd2) / unit_THz
+    dlbd = 0.5*(sys.lbd1 - sys.lbd2) / unit_THz
+
+    kdbar = 0.5*(sys.kd1 + sys.kd2) / unit_THz
+    dkd = 0.5*(sys.kd1 - sys.kd2) / unit_THz
+
+    Ddbar = 0.5*(sys.wd1 + sys.wd2) / unit_THz
+    dDd = 0.5*(sys.wd1 - sys.wd2) / unit_THz
+
+    return {
+        "Device": name,
+        r"$\gamma_a/2\pi$ (THz)": sys.ga / unit_THz,
+        r"$\kappa_a/2\pi$ (THz)": sys.ka / unit_THz,
+        r"$\bar{\kappa}_d/2\pi$ (THz)": kdbar,
+        r"$\delta_{\kappa_d}/2\pi$ (THz)": dkd,
+        r"$\bar{\lambda}/2\pi$ (THz)": lbdbar,
+        r"$\delta_{\lambda}/2\pi$ (THz)": dlbd,
+        r"$\bar{\Delta}_d/2\pi$ (THz)": Ddbar,
+        r"$\delta_{\Delta_d}/2\pi$ (THz)": dDd,
+    }
+
+
+
+
