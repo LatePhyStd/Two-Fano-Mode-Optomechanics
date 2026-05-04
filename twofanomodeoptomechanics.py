@@ -78,6 +78,92 @@ c = 299792458             # speed of light
 
 # --------------------- bare optical two-mode analysis -------------------------
 
+
+
+def scan_device_vs_Ddbar_kdbar(
+    sys,
+    Ddbar_min_THz,
+    Ddbar_max_THz,
+    kdbar_min_THz,
+    kdbar_max_THz,
+    npts=501,
+):
+    """
+    Scan bare optical eigenvalues in H_aBD.
+
+    Upper-panel scan:
+        Re(Omega_i)/2pi versus Delta_dbar/2pi.
+
+    Lower-panel scan:
+        kappa_i/2pi = -Im(Omega_i)/2pi versus kappa_dbar/2pi.
+
+    Inputs are in ordinary-frequency THz.
+    """
+    TWOPI = 2*np.pi
+    unit_THz = TWOPI * sys.w_scale * 1e12
+
+    # fixed offsets
+    dDd = 0.5*(sys.wd1 - sys.wd2)
+    dkd = 0.5*(sys.kd1 - sys.kd2)
+
+    # ----------------------------
+    # Delta_dbar scan
+    # ----------------------------
+    Ddbar_vals = np.linspace(
+        Ddbar_min_THz*unit_THz,
+        Ddbar_max_THz*unit_THz,
+        npts,
+    )
+
+    eigvals_D_raw = []
+
+    for Ddbar in Ddbar_vals:
+        wd1 = Ddbar + dDd
+        wd2 = Ddbar - dDd
+
+        H = Hbare_aBdD(
+            sys.ga, sys.ka, sys.kd1, sys.kd2,
+            sys.lbd1, sys.lbd2,
+            sys.wa, wd1, wd2,
+        )
+
+        eigvals_D_raw.append(np.linalg.eigvals(H))
+
+    eigs_D = track_eigs_continuously(eigvals_D_raw)
+
+    xD_THz = Ddbar_vals/unit_THz
+    Delta_THz = eigs_D.real/unit_THz
+
+    # ----------------------------
+    # kappa_dbar scan
+    # ----------------------------
+    kdbar_vals = np.linspace(
+        kdbar_min_THz*unit_THz,
+        kdbar_max_THz*unit_THz,
+        npts,
+    )
+
+    eigvals_k_raw = []
+
+    for kdbar in kdbar_vals:
+        kd1 = kdbar + dkd
+        kd2 = kdbar - dkd
+
+        H = Hbare_aBdD(
+            sys.ga, sys.ka, kd1, kd2,
+            sys.lbd1, sys.lbd2,
+            sys.wa, sys.wd1, sys.wd2,
+        )
+
+        eigvals_k_raw.append(np.linalg.eigvals(H))
+
+    eigs_k = track_eigs_continuously(eigvals_k_raw)
+
+    xk_THz = kdbar_vals/unit_THz
+    kappa_THz = (-eigs_k.imag)/unit_THz
+
+    return xD_THz, Delta_THz, eigs_D, xk_THz, kappa_THz, eigs_k
+
 def optical_G1(ka, kd1, lbd1):
     """Bare optical coupling G1 = lbd1 - 1j*sqrt(ka*kd1)."""
     return lbd1 - 1j*sqrt(ka)*sqrt(kd1)
