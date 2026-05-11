@@ -1190,7 +1190,7 @@ def q_ss(
     q0 = 2 * Plas * Q0 / (h * wL * Om * abs(Den)**2)
     return np.real_if_close(q0)
 
-def q_ss_two_mode_lin(
+def q_ss_lin(
     Om, Plas,
     ga,
     gka0, gkd10, gkd20,
@@ -1370,7 +1370,7 @@ def g_effs(
     a_las = sqrt(Plas/(h*wL))*exp(1j*thlas)
 
     # Steady-state fields at the effective parameters
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1379,7 +1379,7 @@ def g_effs(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1388,7 +1388,7 @@ def g_effs(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas,
         ga,
         ka, kd1, kd2,
