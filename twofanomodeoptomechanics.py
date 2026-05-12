@@ -2997,6 +2997,340 @@ def neff_2d(
     return neff
 
 
+# --------------------- stability analysis  -------------------------
+
+
+# ============================================================
+# Generic Hurwitz helper
+# ============================================================
+def _hurwitz_matrix_from_coeffs(a):
+    """
+    Build Hurwitz matrix for the monic polynomial
+
+        p(s) = s^n + a1 s^(n-1) + a2 s^(n-2) + ... + an.
+
+    Input:
+        a = [a1, a2, ..., an]
+
+    Hurwitz matrix starts as:
+
+        [a1  a3  a5  ...]
+        [1   a2  a4  ...]
+        [0   a1  a3  ...]
+        [0   1   a2  ...]
+        ...
+
+    Returns:
+        H, shape (n,n)
+    """
+    a = np.asarray(a, dtype=float)
+    n = len(a)
+
+    # a0 = 1 for monic polynomial
+    coeff = {0: 1.0}
+    for k in range(1, n + 1):
+        coeff[k] = a[k - 1]
+
+    H = np.zeros((n, n), dtype=float)
+
+    for i in range(n):
+        for j in range(n):
+            # 0-index version of a_{2j-i}
+            idx = 2*(j + 1) - (i + 1)
+
+            if 0 <= idx <= n:
+                H[i, j] = coeff[idx]
+            else:
+                H[i, j] = 0.0
+
+    return H
+
+
+def _RH_ratios_from_A(A):
+    """
+    Generic Routh-Hurwitz ratios for an n x n drift matrix A.
+
+    For the characteristic polynomial
+
+        p(s) = det(s I - A)
+             = s^n + a1 s^(n-1) + ... + an,
+
+    this returns
+
+        Delta_2/Delta_1,
+        Delta_3/Delta_2,
+        ...,
+        Delta_{n-1}/Delta_{n-2},
+        a_n
+
+    For the two-mode 8x8 case, this gives
+
+        r2, r3, r4, r5, r6, r7, a8.
+
+    This generalizes the old one-mode 6x6 output
+
+        r2, r3, r4, r5, a6.
+    """
+    eigs = np.linalg.eigvals(A)
+
+    # np.poly gives coefficients in descending powers:
+    # [1, a1, a2, ..., an]
+    coeffs = np.poly(eigs)
+    coeffs = np.real_if_close(coeffs, tol=1000)
+
+    a = np.real(coeffs[1:])
+    n = len(a)
+
+    H = _hurwitz_matrix_from_coeffs(a)
+
+    # Hurwitz determinants Delta_k
+    Delta = {}
+    for k in range(1, n + 1):
+        Delta[k] = np.linalg.det(H[:k, :k])
+
+    ratios = []
+
+    # r2 = Delta_2/Delta_1, ..., r_{n-1} = Delta_{n-1}/Delta_{n-2}
+    for k in range(2, n):
+        ratios.append(Delta[k] / Delta[k - 1])
+
+    # Final RH condition for monic polynomial is a_n > 0.
+    # This matches your old one-mode function returning a6 at the end.
+    ratios.append(a[-1])
+
+    return tuple(np.real_if_close(ratios))
+
+
+# ============================================================
+# Two-mode Routh-Hurwitz stability criterion
+# ============================================================
+def RH_criterion(
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL, wa, wd1, wd2
+):
+    """
+    Two-mode Routh-Hurwitz stability criterion.
+
+    The two-mode A_Lyapunov matrix is 8x8, so the characteristic
+    polynomial is degree 8:
+
+        p(s) = s^8 + a1 s^7 + a2 s^6 + ... + a8.
+
+    Returns:
+        r2, r3, r4, r5, r6, r7, a8
+
+    where
+
+        r_k = Delta_k / Delta_{k-1}
+
+    are Hurwitz determinant ratios.
+
+    Stability requires all returned quantities to be positive.
+    """
+    A = A_Lyapunov(
+        Om,
+        Plas,
+        ga,
+        gam,
+        gka0, gkd10, gkd20,
+        gwa0, gwd10, gwd20,
+        ka, kd1, kd2,
+        lbd1, lbd2,
+        thlas,
+        wL, wa, wd1, wd2
+    )
+
+    return _RH_ratios_from_A(A)
+
+
+def RH_criterion_wL(
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL, wa, wd1, wd2
+):
+    """
+    Two-mode Routh-Hurwitz criterion for 1D array wL.
+
+    Returns array with shape:
+
+        (7, len(wL))
+
+    corresponding to
+
+        r2, r3, r4, r5, r6, r7, a8.
+    """
+    return np.array([
+        RH_criterion(
+            Om,
+            Plas,
+            ga,
+            gam,
+            gka0, gkd10, gkd20,
+            gwa0, gwd10, gwd20,
+            ka, kd1, kd2,
+            lbd1, lbd2,
+            thlas,
+            w,
+            wa, wd1, wd2
+        )
+        for w in wL
+    ]).T
+
+
+def RH_criterion_Plas(
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL, wa, wd1, wd2
+):
+    """
+    Two-mode Routh-Hurwitz criterion for 1D array Plas.
+
+    Returns array with shape:
+
+        (7, len(Plas))
+
+    corresponding to
+
+        r2, r3, r4, r5, r6, r7, a8.
+    """
+    return np.array([
+        RH_criterion(
+            Om,
+            pl,
+            ga,
+            gam,
+            gka0, gkd10, gkd20,
+            gwa0, gwd10, gwd20,
+            ka, kd1, kd2,
+            lbd1, lbd2,
+            thlas,
+            wL,
+            wa, wd1, wd2
+        )
+        for pl in Plas
+    ]).T
+
+
+# ============================================================
+# Determinant of two-mode Lyapunov drift matrix
+# ============================================================
+def detA(
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL, wa, wd1, wd2
+):
+    """
+    Determinant of two-mode A_Lyapunov.
+
+    For the 8x8 two-mode drift matrix,
+
+        det(A) = a8
+
+    up to the sign convention of the characteristic polynomial.
+    """
+    A = A_Lyapunov(
+        Om,
+        Plas,
+        ga,
+        gam,
+        gka0, gkd10, gkd20,
+        gwa0, gwd10, gwd20,
+        ka, kd1, kd2,
+        lbd1, lbd2,
+        thlas,
+        wL, wa, wd1, wd2
+    )
+
+    return np.real_if_close(np.linalg.det(A))
+
+
+def detA_2d(
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL,
+    wa, wd1, wd2,
+    threads=8
+):
+    """
+    Determinant of two-mode A_Lyapunov.
+
+    Parallel calculation for 2D arrays wL and Plas.
+
+    Inputs:
+        wL   : 2D array
+        Plas : 2D array
+
+    Returns:
+        r8 : 2D array with same shape as wL and Plas.
+    """
+    r8 = np.zeros_like(wL, dtype=float)
+    ps = []
+
+    with Pool(threads) as pool:
+        for i in range(r8.shape[0]):
+            ps.append([])
+
+            for j in range(r8.shape[1]):
+                ps[i].append(
+                    pool.apply_async(
+                        detA,
+                        (
+                            Om,
+                            Plas[i, j],
+                            ga,
+                            gam,
+                            gka0, gkd10, gkd20,
+                            gwa0, gwd10, gwd20,
+                            ka, kd1, kd2,
+                            lbd1, lbd2,
+                            thlas,
+                            wL[i, j],
+                            wa, wd1, wd2
+                        )
+                    )
+                )
+
+        for i in range(r8.shape[0]):
+            for j in range(r8.shape[1]):
+                r8[i, j] = np.real(np.asarray(ps[i][j].get())).item()
+
+    return r8
 
 # --------------------- bare optical two-mode analysis -------------------------
 
