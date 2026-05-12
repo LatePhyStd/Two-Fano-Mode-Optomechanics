@@ -609,7 +609,7 @@ def dTs(
     """
 
     def T_val(ga_, ka_, kd1_, kd2_, lbd1_, lbd2_, wL_, wa_, wd1_, wd2_):
-        t = t_CM_2mode(
+        t = t_CM(
             ga_, ka_, kd1_, kd2_,
             lbd1_, lbd2_,
             wL_, wa_, wd1_, wd2_
