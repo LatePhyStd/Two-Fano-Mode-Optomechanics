@@ -1362,7 +1362,7 @@ def g_effs(
 
     Assumes h is defined globally.
 
-    Also assumes q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode
+    Also assumes q_ss, a_ss, d1_ss, d2_ss
     are already defined.
     """
 
@@ -1554,7 +1554,7 @@ def Xmeff(
     # ----------------------------
     # Steady-state fields
     # ----------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1562,7 +1562,7 @@ def Xmeff(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1570,7 +1570,7 @@ def Xmeff(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1757,7 +1757,7 @@ def Xopt_inv_components(
         Xopti_ad2,
         Xopti_d1d2
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
     """
 
     # ----------------------------
@@ -1811,7 +1811,7 @@ def Xopt_inv_components(
     # ----------------------------
     # Steady-state fields
     # ----------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1819,7 +1819,7 @@ def Xopt_inv_components(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1827,7 +1827,7 @@ def Xopt_inv_components(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2006,7 +2006,7 @@ def Xopt_inv(
 
         Xopt_inv = chi_opt^{-1}
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are already defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are already defined.
     """
 
     # ------------------------------------------------------------
@@ -2060,7 +2060,7 @@ def Xopt_inv(
     # ------------------------------------------------------------
     # Steady-state fields
     # ------------------------------------------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2068,7 +2068,7 @@ def Xopt_inv(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2076,7 +2076,7 @@ def Xopt_inv(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2301,7 +2301,7 @@ def A_Lyapunov(
             delta p
         )
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
     """
 
     # ------------------------------------------------------------
@@ -2314,7 +2314,7 @@ def A_Lyapunov(
     # ------------------------------------------------------------
     # Steady-state fields
     # ------------------------------------------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2323,7 +2323,7 @@ def A_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2332,7 +2332,7 @@ def A_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2595,11 +2595,11 @@ def B_Lyapunov(
             delta p
         )
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
     """
 
     # Steady-state fields
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2608,7 +2608,7 @@ def B_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2617,7 +2617,7 @@ def B_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas,
         ga,
         ka, kd1, kd2,
