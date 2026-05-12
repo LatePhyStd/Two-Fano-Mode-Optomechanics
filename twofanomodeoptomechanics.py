@@ -2752,6 +2752,177 @@ def B_Lyapunov(
 
     return np.real_if_close(B)
 
+def solve_Lyapunov_linsys(
+    Nth,
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL, wa, wd1, wd2
+):
+    """
+    Two-mode Lyapunov solver.
+
+    Quadrature ordering:
+        Y = (
+            delta X_a,
+            delta P_a,
+            delta X_d1,
+            delta P_d1,
+            delta X_d2,
+            delta P_d2,
+            delta q,
+            delta p
+        )
+
+    The covariance matrix V obeys:
+
+        A V + V A^T + B = 0.
+
+    Returns:
+        V11, V12, ..., V88
+
+    as the upper-triangular entries of the 8x8 covariance matrix.
+    """
+
+    A = A_Lyapunov(
+        Om,
+        Plas,
+        ga,
+        gam,
+        gka0, gkd10, gkd20,
+        gwa0, gwd10, gwd20,
+        ka, kd1, kd2,
+        lbd1, lbd2,
+        thlas,
+        wL, wa, wd1, wd2
+    )
+
+    B = B_Lyapunov(
+        Nth,
+        Om,
+        Plas,
+        ga,
+        gam,
+        gka0, gkd10, gkd20,
+        gwa0, gwd10, gwd20,
+        ka, kd1, kd2,
+        lbd1, lbd2,
+        thlas,
+        wL, wa, wd1, wd2
+    )
+
+    # SciPy solves A V + V A^T = Q.
+    # Since our equation is A V + V A^T + B = 0,
+    # we use Q = -B.
+    V = scilin.solve_continuous_lyapunov(A, -B)
+
+    V = np.real_if_close(V)
+
+    return (
+        V[0, 0],
+        V[0, 1], V[0, 2], V[0, 3], V[0, 4], V[0, 5], V[0, 6], V[0, 7],
+
+        V[1, 1], V[1, 2], V[1, 3], V[1, 4], V[1, 5], V[1, 6], V[1, 7],
+
+        V[2, 2], V[2, 3], V[2, 4], V[2, 5], V[2, 6], V[2, 7],
+
+        V[3, 3], V[3, 4], V[3, 5], V[3, 6], V[3, 7],
+
+        V[4, 4], V[4, 5], V[4, 6], V[4, 7],
+
+        V[5, 5], V[5, 6], V[5, 7],
+
+        V[6, 6], V[6, 7],
+
+        V[7, 7],
+    )
+
+
+def neff_Lyapunov_linsys(
+    Nth,
+    Om,
+    Plas,
+    ga,
+    gam,
+    gka0, gkd10, gkd20,
+    gwa0, gwd10, gwd20,
+    ka, kd1, kd2,
+    lbd1, lbd2,
+    thlas,
+    wL, wa, wd1, wd2
+):
+    """
+    Two-mode photons and phonon numbers in the fluctuations.
+
+    Returns:
+        n_a, n_d1, n_d2, n_mec
+
+    where
+
+        n_a   = <delta a^dagger delta a>
+        n_d1  = <delta d1^dagger delta d1>
+        n_d2  = <delta d2^dagger delta d2>
+        n_mec = final phonon number
+
+    Quadrature ordering:
+        X_a, P_a, X_d1, P_d1, X_d2, P_d2, q, p
+    """
+
+    (
+        V11,
+        V12, V13, V14, V15, V16, V17, V18,
+
+        V22, V23, V24, V25, V26, V27, V28,
+
+        V33, V34, V35, V36, V37, V38,
+
+        V44, V45, V46, V47, V48,
+
+        V55, V56, V57, V58,
+
+        V66, V67, V68,
+
+        V77, V78,
+
+        V88,
+    ) = solve_Lyapunov_linsys(
+        Nth,
+        Om,
+        Plas,
+        ga,
+        gam,
+        gka0, gkd10, gkd20,
+        gwa0, gwd10, gwd20,
+        ka, kd1, kd2,
+        lbd1, lbd2,
+        thlas,
+        wL, wa, wd1, wd2
+    )
+
+    # Photon number of cavity mode a:
+    # n_a = (V_XaXa + V_PaPa - 1)/2
+    n_a = (V11 + V22 - 1)/2
+
+    # Photon number of Fano mode d1:
+    # n_d1 = (V_Xd1Xd1 + V_Pd1Pd1 - 1)/2
+    n_d1 = (V33 + V44 - 1)/2
+
+    # Photon number of Fano mode d2:
+    # n_d2 = (V_Xd2Xd2 + V_Pd2Pd2 - 1)/2
+    n_d2 = (V55 + V66 - 1)/2
+
+    # Final phonon number:
+    # n_mec = (V_qq + V_pp - 1)/2
+    n_mec = (V77 + V88 - 1)/2
+
+    return n_a, n_d1, n_d2, n_mec
+
 def neff_2d(
     Nth,
     Om,
@@ -2768,9 +2939,9 @@ def neff_2d(
     threads=8
 ):
     """
-    Two-mode phonon number in the fluctuations.
+    Two-mode final phonon number in the fluctuations.
 
-    Parallel calculation of neff_Lyapunov_linsys_2mode()[2]
+    Parallel calculation of neff_Lyapunov_linsys_2mode()[3]
     for 2D arrays wL and Plas.
 
     Inputs:
@@ -2779,6 +2950,13 @@ def neff_2d(
 
     Returns:
         neff : 2D array with same shape as wL and Plas
+
+    Assumes:
+        neff_Lyapunov_linsys_2mode returns
+
+            n_a, n_d1, n_d2, n_mec
+
+        so the final phonon number is index 3.
     """
 
     neff = np.zeros_like(wL, dtype=float)
@@ -2787,6 +2965,7 @@ def neff_2d(
     with Pool(threads) as pool:
         for i in range(neff.shape[0]):
             ps.append([])
+
             for j in range(neff.shape[1]):
                 ps[i].append(
                     pool.apply_async(
@@ -2810,7 +2989,10 @@ def neff_2d(
 
         for i in range(neff.shape[0]):
             for j in range(neff.shape[1]):
-                neff[i, j] = ps[i][j].get()[2][0]
+                result = ps[i][j].get()
+
+                # result = (n_a, n_d1, n_d2, n_mec)
+                neff[i, j] = np.real(np.asarray(result[3])).item()
 
     return neff
 
