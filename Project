@@ -1,1 +1,920 @@
+# =============================================================================
+# twofano_project.py
+# Core optical layer for two-Fano-mode optomechanics
+# =============================================================================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from itertools import permutations
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+pi = np.pi
+TWOPI = 2*np.pi
+c = 299792458.0
+hbar = 6.62606957e-34/(2*pi)
+kB = 1.3806488e-23
+
+
+# =============================================================================
+# Unit helpers
+# =============================================================================
+
+def ang_to_THz(x):
+    """
+    Convert angular frequency [rad/s] to ordinary frequency [THz].
+    """
+    return x/(2*np.pi*1e12)
+
+
+def THz_to_ang(x_THz):
+    """
+    Convert ordinary frequency [THz] to angular frequency [rad/s].
+    """
+    return 2*np.pi*x_THz*1e12
+
+
+def ang_to_MHz(x):
+    """
+    Convert angular frequency [rad/s] to ordinary frequency [MHz].
+    """
+    return x/(2*np.pi*1e6)
+
+
+def MHz_to_ang(x_MHz):
+    """
+    Convert ordinary frequency [MHz] to angular frequency [rad/s].
+    """
+    return 2*np.pi*x_MHz*1e6
+
+
+# =============================================================================
+# Detuning convention
+# =============================================================================
+
+def lab_to_detunings(wa, wd1, wd2, wL0):
+    """
+    Convert lab-frame optical frequencies to rotating-frame detunings.
+
+        Delta_a  = wa  - wL0
+        Delta_d1 = wd1 - wL0
+        Delta_d2 = wd2 - wL0
+
+    These are the quantities that appear on the diagonal of H.
+    """
+    Da = wa - wL0
+    Dd1 = wd1 - wL0
+    Dd2 = wd2 - wL0
+    return Da, Dd1, Dd2
+
+
+# =============================================================================
+# Mode switch
+# =============================================================================
+
+def apply_fano_mode_switch_to_detuning_parameters(
+    ga, ka, kd1, kd2,
+    lbd1, lbd2,
+    Da, Dd1, Dd2,
+    switch="two",
+):
+    """
+    Apply the Fano-mode switch directly to the Hamiltonian parameters.
+
+    switch = "two":
+        full two-Fano-mode model.
+
+    switch = "one_from_two":
+        same 3x3 matrix, but d2 is exactly switched off:
+
+            Dd2  = 0
+            kd2  = 0
+            lbd2 = 0
+
+        Then:
+            G2 = 0
+            K12 = 0
+
+        and the matrix becomes a 2x2 block plus a zero mode.
+    """
+
+    if switch == "two":
+        return ga, ka, kd1, kd2, lbd1, lbd2, Da, Dd1, Dd2
+
+    if switch == "one_from_two":
+        kd2 = 0.0
+        lbd2 = 0.0
+        Dd2 = 0.0
+        return ga, ka, kd1, kd2, lbd1, lbd2, Da, Dd1, Dd2
+
+    raise ValueError("switch must be 'two' or 'one_from_two'")
+
+
+def apply_fano_mode_switch_to_lab_parameters(pars, wL0, switch="two"):
+    """
+    Apply the Fano-mode switch to a lab-frame parameter dictionary.
+
+    In one_from_two:
+        wd2 = wL0  -> Delta_d2 = wd2 - wL0 = 0
+        kd2 = 0
+        lbd2 = 0
+        d2 optomechanical couplings are also set to 0 if present.
+    """
+
+    pars = pars.copy()
+
+    if switch == "two":
+        return pars
+
+    if switch == "one_from_two":
+        pars["wd2"] = wL0
+        pars["kd2"] = 0.0
+        pars["lbd2"] = 0.0
+
+        for key in ["gkd20", "gwd20"]:
+            if key in pars:
+                pars[key] = 0.0
+
+        return pars
+
+    raise ValueError("switch must be 'two' or 'one_from_two'")
+
+
+# =============================================================================
+# Optical couplings
+# =============================================================================
+
+def G_coupling(ka, kd, lbd):
+    """
+    Complex coherent+dissipative optical coupling:
+
+        G = lambda - i sqrt(kappa_a kappa_d)
+    """
+    return lbd - 1j*np.sqrt(ka)*np.sqrt(kd)
+
+
+def K12_coupling(kd1, kd2):
+    """
+    Dissipative coupling between the two Fano modes:
+
+        K12 = sqrt(kappa_d1 kappa_d2)
+    """
+    return np.sqrt(kd1)*np.sqrt(kd2)
+
+
+# =============================================================================
+# Bare optical Hamiltonian
+# =============================================================================
+
+def Hbare_ad1d2(
+    ga, ka, kd1, kd2,
+    lbd1, lbd2,
+    Da, Dd1, Dd2,
+    switch="two",
+):
+    """
+    Bare optical non-Hermitian matrix in the (a,d1,d2) basis.
+
+    IMPORTANT:
+        Da, Dd1, Dd2 are detunings, not lab-frame frequencies.
+
+        Da  = wa  - wL0
+        Dd1 = wd1 - wL0
+        Dd2 = wd2 - wL0
+
+    H =
+        [[Da  - i(ka + ga),  G1,              G2],
+         [G1,                 Dd1 - i kd1,    -i K12],
+         [G2,                -i K12,           Dd2 - i kd2]]
+    """
+
+    (
+        ga, ka, kd1, kd2,
+        lbd1, lbd2,
+        Da, Dd1, Dd2,
+    ) = apply_fano_mode_switch_to_detuning_parameters(
+        ga, ka, kd1, kd2,
+        lbd1, lbd2,
+        Da, Dd1, Dd2,
+        switch=switch,
+    )
+
+    G1 = G_coupling(ka, kd1, lbd1)
+    G2 = G_coupling(ka, kd2, lbd2)
+    K12 = K12_coupling(kd1, kd2)
+
+    H = np.array([
+        [Da  - 1j*(ka + ga), G1,               G2],
+        [G1,                  Dd1 - 1j*kd1,    -1j*K12],
+        [G2,                 -1j*K12,           Dd2 - 1j*kd2],
+    ], dtype=complex)
+
+    return H
+
+
+def U_BD():
+    """
+    Basis transformation from (a,d1,d2) to (a,dB,dD):
+
+        dB = (d1 + d2)/sqrt(2)
+        dD = (d1 - d2)/sqrt(2)
+
+        [a,dB,dD]^T = U [a,d1,d2]^T
+    """
+    return np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, 1/np.sqrt(2), 1/np.sqrt(2)],
+        [0.0, 1/np.sqrt(2), -1/np.sqrt(2)],
+    ], dtype=complex)
+
+
+def Hbare_aBdD(
+    ga, ka, kd1, kd2,
+    lbd1, lbd2,
+    Da, Dd1, Dd2,
+    switch="two",
+):
+    """
+    Bare optical matrix in the (a,dB,dD) basis.
+
+        H_aBD = U H_ad1d2 U^T
+    """
+    U = U_BD()
+    H = Hbare_ad1d2(
+        ga, ka, kd1, kd2,
+        lbd1, lbd2,
+        Da, Dd1, Dd2,
+        switch=switch,
+    )
+    return U @ H @ U.T
+
+
+# =============================================================================
+# Eigenvalue helpers
+# =============================================================================
+
+def sorted_eigvals(vals):
+    """
+    Sort complex eigenvalues by real part, then imaginary part.
+    """
+    return np.array(
+        sorted(vals, key=lambda z: (np.real(z), np.imag(z))),
+        dtype=complex,
+    )
+
+
+def eigs_ad1d2(
+    ga, ka, kd1, kd2,
+    lbd1, lbd2,
+    Da, Dd1, Dd2,
+    switch="two",
+):
+    """
+    Eigenvalues of H_ad1d2.
+
+        Omega_i = Delta_i - i kappa_i
+    """
+    vals = np.linalg.eigvals(
+        Hbare_ad1d2(
+            ga, ka, kd1, kd2,
+            lbd1, lbd2,
+            Da, Dd1, Dd2,
+            switch=switch,
+        )
+    )
+    return sorted_eigvals(vals)
+
+
+def eigs_aBdD(
+    ga, ka, kd1, kd2,
+    lbd1, lbd2,
+    Da, Dd1, Dd2,
+    switch="two",
+):
+    """
+    Eigenvalues of H_aBD.
+
+        Omega_i = Delta_i - i kappa_i
+    """
+    vals = np.linalg.eigvals(
+        Hbare_aBdD(
+            ga, ka, kd1, kd2,
+            lbd1, lbd2,
+            Da, Dd1, Dd2,
+            switch=switch,
+        )
+    )
+    return sorted_eigvals(vals)
+
+
+def eigs_from_lab_parameters(pars, wL0, basis="aBdD", switch="two"):
+    """
+    Compute eigenvalues from a lab-frame parameter dictionary.
+
+    The dictionary should contain:
+        ga, ka, kd1, kd2, lbd1, lbd2, wa, wd1, wd2
+    """
+    pars = apply_fano_mode_switch_to_lab_parameters(
+        pars,
+        wL0=wL0,
+        switch=switch,
+    )
+
+    Da, Dd1, Dd2 = lab_to_detunings(
+        pars["wa"], pars["wd1"], pars["wd2"], wL0
+    )
+
+    args = (
+        pars["ga"], pars["ka"], pars["kd1"], pars["kd2"],
+        pars["lbd1"], pars["lbd2"],
+        Da, Dd1, Dd2,
+    )
+
+    if basis == "ad1d2":
+        return eigs_ad1d2(*args, switch=switch)
+
+    if basis == "aBdD":
+        return eigs_aBdD(*args, switch=switch)
+
+    raise ValueError("basis must be 'ad1d2' or 'aBdD'")
+
+
+def Delta_from_Omega(Omega):
+    """
+    Delta_i = Re(Omega_i).
+    """
+    return np.real(Omega)
+
+
+def kappa_from_Omega(Omega):
+    """
+    kappa_i = -Im(Omega_i).
+    """
+    return -np.imag(Omega)
+
+
+# =============================================================================
+# Eigenvalue branch tracking
+# =============================================================================
+
+def track_eigs_continuously(vals_list):
+    """
+    Continuity-based tracking of 3 eigenvalue branches.
+
+    vals_list:
+        list of arrays of length 3.
+    """
+    vals_list = [np.asarray(v, dtype=complex) for v in vals_list]
+
+    tracked = np.zeros((len(vals_list), 3), dtype=complex)
+    tracked[0] = sorted_eigvals(vals_list[0])
+
+    perms = list(permutations(range(3)))
+
+    for k in range(1, len(vals_list)):
+        vals = vals_list[k]
+
+        best_cost = np.inf
+        best_perm = None
+
+        for p in perms:
+            cost = sum(abs(tracked[k - 1, i] - vals[p[i]]) for i in range(3))
+            if cost < best_cost:
+                best_cost = cost
+                best_perm = p
+
+        tracked[k] = vals[list(best_perm)]
+
+    return tracked
+
+
+# =============================================================================
+# Lambda-bar scan
+# =============================================================================
+
+def lbdbar_delta_from_pars(pars, switch="two"):
+    """
+    Return lbdbar and delta_lbd.
+
+    For two-mode:
+        lbdbar = (lbd1 + lbd2)/2
+        delta  = (lbd1 - lbd2)/2
+
+    For one_from_two:
+        lbd2 = 0
+        lbdbar = lbd1/2
+        delta  = lbd1/2
+
+    This keeps the same definition:
+        lbdbar = (lbd1 + lbd2)/2.
+    """
+    if switch == "two":
+        lbdbar = 0.5*(pars["lbd1"] + pars["lbd2"])
+        delta = 0.5*(pars["lbd1"] - pars["lbd2"])
+        return lbdbar, delta
+
+    if switch == "one_from_two":
+        lbdbar = 0.5*pars["lbd1"]
+        delta = 0.5*pars["lbd1"]
+        return lbdbar, delta
+
+    raise ValueError("switch must be 'two' or 'one_from_two'")
+
+
+def set_lbdbar_in_pars(pars, lbdbar, switch="two"):
+    """
+    Return a copy of pars with updated lambda values.
+
+    For two-mode:
+        keep delta_lambda fixed:
+            lbd1 = lbdbar + delta
+            lbd2 = lbdbar - delta
+
+    For one_from_two:
+        keep d2 exactly switched off:
+            lbd1 = 2*lbdbar
+            lbd2 = 0
+
+        Therefore lbdbar = lambda/2.
+    """
+    out = pars.copy()
+
+    if switch == "two":
+        _, delta = lbdbar_delta_from_pars(pars, switch="two")
+        out["lbd1"] = lbdbar + delta
+        out["lbd2"] = lbdbar - delta
+        return out
+
+    if switch == "one_from_two":
+        out["lbd1"] = 2*lbdbar
+        out["lbd2"] = 0.0
+        return out
+
+    raise ValueError("switch must be 'two' or 'one_from_two'")
+
+
+def scan_eigs_vs_lbdbar(
+    pars,
+    wL0,
+    lbdbar_min_THz,
+    lbdbar_max_THz,
+    npts=801,
+    basis="aBdD",
+    switch="two",
+):
+    """
+    Scan Omega_i versus lbdbar.
+
+    x-axis is lbdbar/2pi in THz.
+
+    In one_from_two:
+        lbdbar = lambda/2,
+        lbd1 = 2*lbdbar,
+        lbd2 = 0.
+    """
+
+    x_THz = np.linspace(lbdbar_min_THz, lbdbar_max_THz, npts)
+    x_ang = THz_to_ang(x_THz)
+
+    raw = []
+
+    for lbdbar in x_ang:
+        p = set_lbdbar_in_pars(pars, lbdbar, switch=switch)
+
+        vals = eigs_from_lab_parameters(
+            p,
+            wL0=wL0,
+            basis=basis,
+            switch=switch,
+        )
+
+        raw.append(vals)
+
+    eigs = track_eigs_continuously(raw)
+
+    Delta_THz = ang_to_THz(eigs.real)
+    kappa_THz = ang_to_THz(-eigs.imag)
+
+    return x_THz, eigs, Delta_THz, kappa_THz
+
+
+def default_lbdbar_range_THz(pars, switch="two", left=None, right=None):
+    """
+    Default lbdbar scan range around current lbdbar0.
+
+    If left/right are None, use a symmetric span of max(2 THz, |lbdbar0|).
+    """
+    lbdbar0, _ = lbdbar_delta_from_pars(pars, switch=switch)
+    lbdbar0_THz = ang_to_THz(lbdbar0)
+
+    if left is None:
+        left = max(2.0, abs(lbdbar0_THz))
+    if right is None:
+        right = max(2.0, abs(lbdbar0_THz))
+
+    return lbdbar0_THz - left, lbdbar0_THz + right
+
+
+def minima_from_lbdbar_scan(x_THz, eigs, active_modes=3):
+    """
+    Find minima of kappa_i = -Im(Omega_i) for each active branch.
+
+    Returns:
+        minima_df, global_min_row
+    """
+    kappa_THz = ang_to_THz(-eigs.imag)
+    Delta_THz = ang_to_THz(eigs.real)
+
+    rows = []
+
+    for imode in range(active_modes):
+        j = np.nanargmin(kappa_THz[:, imode])
+
+        rows.append({
+            "Mode": rf"$\Omega_{imode+1}$",
+            "mode_index": imode + 1,
+            "kappa_min_THz": kappa_THz[j, imode],
+            "kappa_min_MHz": kappa_THz[j, imode]*1e6,
+            "lbdbar_at_min_THz": x_THz[j],
+            "Delta_at_min_THz": Delta_THz[j, imode],
+            "Omega_at_min": eigs[j, imode],
+        })
+
+    df = pd.DataFrame(rows)
+    jglob = df["kappa_min_THz"].astype(float).idxmin()
+    global_row = df.loc[jglob].to_dict()
+
+    return df, global_row
+
+
+def run_lbdbar_scan_for_devices(
+    pars_by_device,
+    wL0_by_device,
+    switch="two",
+    ranges_THz=None,
+    npts=801,
+    basis="aBdD",
+):
+    """
+    Run lbdbar optimization scan for several devices.
+
+    pars_by_device:
+        dict like {"exp": pars_exp, "1": pars1, "2": pars2}
+
+    wL0_by_device:
+        fixed laser frequency for each device.
+
+    ranges_THz:
+        optional dict:
+            {"exp": (min,max), "1": (min,max), ...}
+
+        If a device value is None, default range is used.
+
+    Returns:
+        result dict containing scan data, minima table, and updated parameters.
+    """
+
+    if switch == "two":
+        active_modes = 3
+    elif switch == "one_from_two":
+        active_modes = 2
+    else:
+        raise ValueError("switch must be 'two' or 'one_from_two'")
+
+    scan_data = {}
+    minima_rows = []
+    updated_pars = {}
+
+    for dev_name, pars in pars_by_device.items():
+
+        if ranges_THz is not None and ranges_THz.get(dev_name, None) is not None:
+            xmin, xmax = ranges_THz[dev_name]
+        else:
+            xmin, xmax = default_lbdbar_range_THz(pars, switch=switch)
+
+        x_THz, eigs, Delta_THz, kappa_THz = scan_eigs_vs_lbdbar(
+            pars,
+            wL0=wL0_by_device[dev_name],
+            lbdbar_min_THz=xmin,
+            lbdbar_max_THz=xmax,
+            npts=npts,
+            basis=basis,
+            switch=switch,
+        )
+
+        minima_df, global_row = minima_from_lbdbar_scan(
+            x_THz,
+            eigs,
+            active_modes=active_modes,
+        )
+
+        minima_df.insert(0, "Device", dev_name)
+
+        for _, row in minima_df.iterrows():
+            minima_rows.append(row.to_dict())
+
+        lbdbar_opt = THz_to_ang(global_row["lbdbar_at_min_THz"])
+        p_opt = set_lbdbar_in_pars(pars, lbdbar_opt, switch=switch)
+        p_opt = apply_fano_mode_switch_to_lab_parameters(
+            p_opt,
+            wL0=wL0_by_device[dev_name],
+            switch=switch,
+        )
+        updated_pars[dev_name] = p_opt
+
+        scan_data[dev_name] = {
+            "x_THz": x_THz,
+            "eigs": eigs,
+            "Delta_THz": Delta_THz,
+            "kappa_THz": kappa_THz,
+            "range_THz": (xmin, xmax),
+            "minima_df": minima_df,
+            "global_min": global_row,
+            "updated_pars": p_opt,
+        }
+
+    minima_table = pd.DataFrame(minima_rows)
+
+    return {
+        "scan_data": scan_data,
+        "minima_table": minima_table,
+        "updated_pars": updated_pars,
+        "active_modes": active_modes,
+        "switch": switch,
+    }
+
+
+# =============================================================================
+# Parameter tables
+# =============================================================================
+
+def make_lbdbar_parameter_table(pars_by_device, wL0_by_device, switch="two"):
+    """
+    Make a compact parameter table for the lbdbar scan.
+    """
+
+    quantities = [
+        r"$\omega_{\rm las}/2\pi$ (THz)",
+        r"$\Delta_a/2\pi$ (THz)",
+        r"$\Delta_{d_1}/2\pi$ (THz)",
+        r"$\Delta_{d_2}/2\pi$ (THz)",
+        r"$\gamma_a/2\pi$ (THz)",
+        r"$\kappa_a/2\pi$ (THz)",
+        r"$\kappa_{d_1}/2\pi$ (THz)",
+        r"$\kappa_{d_2}/2\pi$ (THz)",
+        r"$\lambda_1/2\pi$ (THz)",
+        r"$\lambda_2/2\pi$ (THz)",
+        r"$\bar{\lambda}/2\pi$ (THz)",
+        r"$\delta_\lambda/2\pi$ (THz)",
+    ]
+
+    table = pd.DataFrame({"Quantity": quantities})
+
+    for dev_name, pars in pars_by_device.items():
+        p = apply_fano_mode_switch_to_lab_parameters(
+            pars,
+            wL0=wL0_by_device[dev_name],
+            switch=switch,
+        )
+
+        Da, Dd1, Dd2 = lab_to_detunings(
+            p["wa"], p["wd1"], p["wd2"], wL0_by_device[dev_name]
+        )
+
+        lbdbar, dlbd = lbdbar_delta_from_pars(p, switch=switch)
+
+        values = [
+            ang_to_THz(wL0_by_device[dev_name]),
+            ang_to_THz(Da),
+            ang_to_THz(Dd1),
+            ang_to_THz(Dd2),
+            ang_to_THz(p["ga"]),
+            ang_to_THz(p["ka"]),
+            ang_to_THz(p["kd1"]),
+            ang_to_THz(p["kd2"]),
+            ang_to_THz(p["lbd1"]),
+            ang_to_THz(p["lbd2"]),
+            ang_to_THz(lbdbar),
+            ang_to_THz(dlbd),
+        ]
+
+        table[dev_name] = values
+
+    return table
+
+
+# =============================================================================
+# Plotting: Omega_i versus lbdbar
+# =============================================================================
+
+def plot_lbdbar_scan(
+    result,
+    title=None,
+    figsize=(13.2, 10.2),
+    colors=None,
+):
+    """
+    Plot Omega_i versus lbdbar for exp, 1, 2.
+
+    Each device panel has two subpanels:
+        upper: Re(Omega_i)/2pi
+        lower: kappa_i/2pi = -Im(Omega_i)/2pi
+
+    Panel (d): legend and minima table.
+    """
+
+    if colors is None:
+        colors = ["C0", "C1", "C2"]
+
+    active_modes = result["active_modes"]
+    scan_data = result["scan_data"]
+    minima_table = result["minima_table"]
+    switch = result["switch"]
+
+    panel_labels = {"exp": "(a)", "1": "(b)", "2": "(c)", "info": "(d)"}
+    device_titles = {"exp": "Device exp", "1": "Device 1", "2": "Device 2"}
+
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(2, 2, wspace=0.24, hspace=0.24)
+
+    panel_specs = {
+        "exp": gs[0, 0],
+        "1": gs[0, 1],
+        "2": gs[1, 0],
+    }
+
+    for dev_name in ["exp", "1", "2"]:
+
+        subgs = panel_specs[dev_name].subgridspec(
+            2, 1,
+            height_ratios=[1.0, 1.0],
+            hspace=0.48,
+        )
+
+        ax_top = fig.add_subplot(subgs[0, 0])
+        ax_bot = fig.add_subplot(subgs[1, 0])
+
+        data = scan_data[dev_name]
+
+        x = data["x_THz"]
+        Delta = data["Delta_THz"]
+        kappa = data["kappa_THz"]
+
+        for imode in range(active_modes):
+            ax_top.plot(
+                x,
+                Delta[:, imode],
+                color=colors[imode],
+                lw=2.0,
+            )
+            ax_bot.plot(
+                x,
+                np.clip(kappa[:, imode], 1e-18, None),
+                color=colors[imode],
+                lw=2.0,
+            )
+
+        # In one_from_two, the third branch is the zero block.
+        # It is intentionally not plotted as an active physical branch.
+
+        ax_top.set_xlim(x.min(), x.max())
+        ax_bot.set_xlim(x.min(), x.max())
+        ax_top.margins(x=0)
+        ax_bot.margins(x=0)
+
+        ax_top.set_ylabel(r"$\mathrm{Re}(\Omega_i)/2\pi$ (THz)", fontsize=13)
+        ax_bot.set_ylabel(r"$\kappa_i/2\pi$ (THz)", fontsize=13)
+
+        if switch == "one_from_two":
+            xlabel = r"$\bar{\lambda}/2\pi=\lambda/4\pi$ (THz)"
+        else:
+            xlabel = r"$\bar{\lambda}/2\pi$ (THz)"
+
+        ax_bot.set_xlabel(xlabel, fontsize=14)
+
+        ax_top.grid(False)
+        ax_bot.grid(False)
+
+        for ax in [ax_top, ax_bot]:
+            ax.tick_params(axis="both", labelsize=11, length=4, width=1.0)
+            for spine in ax.spines.values():
+                spine.set_linewidth(1.2)
+
+        ax_top.text(
+            0.98, 1.02,
+            f"{panel_labels[dev_name]}  {device_titles[dev_name]}",
+            transform=ax_top.transAxes,
+            ha="right",
+            va="bottom",
+            fontsize=10,
+            clip_on=False,
+        )
+
+    # -------------------------------------------------------------------------
+    # Panel d
+    # -------------------------------------------------------------------------
+    ax_info = fig.add_subplot(gs[1, 1])
+    ax_info.axis("off")
+
+    ax_info.text(
+        0.03, 0.97, "(d)",
+        transform=ax_info.transAxes,
+        fontsize=10,
+        va="top",
+        ha="left",
+    )
+
+    mode_handles = [
+        Line2D(
+            [0], [0],
+            color=colors[i],
+            lw=3.0,
+            label=rf"$\Omega_{i+1}$",
+        )
+        for i in range(active_modes)
+    ]
+
+    leg = ax_info.legend(
+        handles=mode_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.50, 0.98),
+        ncol=active_modes,
+        frameon=True,
+        fancybox=True,
+        framealpha=1.0,
+        fontsize=14,
+        handlelength=2.2,
+        columnspacing=1.3,
+        borderpad=0.55,
+    )
+
+    leg.get_frame().set_facecolor("#f0f0f0")
+    leg.get_frame().set_edgecolor("0.7")
+    leg.get_frame().set_linewidth(1.1)
+
+    # Minima table
+    rows = []
+
+    for dev_name in ["exp", "1", "2"]:
+        sub = minima_table[minima_table["Device"].astype(str) == str(dev_name)]
+        sub = sub[sub["mode_index"] <= active_modes]
+
+        for irow, row in sub.iterrows():
+            rows.append([
+                dev_name if len(rows) == 0 or rows[-1][0] != dev_name else "",
+                row["Mode"],
+                f"{row['kappa_min_MHz']:.4f}",
+                f"{row['lbdbar_at_min_THz']:.4f}",
+            ])
+
+    col_labels = [
+        "Device",
+        "Mode",
+        r"$\min(\kappa_i/2\pi)$ MHz",
+        r"$\bar{\lambda}_{\min}/2\pi$ THz",
+    ]
+
+    tbl = ax_info.table(
+        cellText=rows,
+        colLabels=col_labels,
+        cellLoc="center",
+        colLoc="center",
+        colWidths=[0.17, 0.16, 0.36, 0.31],
+        bbox=[0.02, 0.03, 0.96, 0.72],
+    )
+
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(8.7)
+    tbl.scale(1.0, 1.12)
+
+    nrows = len(rows) + 1
+    ncols = len(col_labels)
+
+    for (r, c), cell in tbl.get_celld().items():
+        cell.set_edgecolor("0.25")
+        cell.set_linewidth(0.9)
+        cell.PAD = 0.04
+
+        if r == 0:
+            cell.set_facecolor("#ececec")
+            cell.set_text_props(weight="bold", fontsize=8.7)
+            cell.set_linewidth(1.2)
+        else:
+            cell.set_facecolor("white" if r % 2 else "#fafafa")
+            cell.set_text_props(fontsize=8.4)
+
+    for c in range(ncols):
+        tbl[(0, c)].set_linewidth(1.3)
+        tbl[(nrows - 1, c)].set_linewidth(1.3)
+
+    if title is not None:
+        fig.suptitle(title, fontsize=16, y=0.995)
+
+    return fig
+
+
 
