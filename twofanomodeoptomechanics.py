@@ -609,7 +609,7 @@ def dTs(
     """
 
     def T_val(ga_, ka_, kd1_, kd2_, lbd1_, lbd2_, wL_, wa_, wd1_, wd2_):
-        t = t_CM(
+        t = t_CM_2mode(
             ga_, ka_, kd1_, kd2_,
             lbd1_, lbd2_,
             wL_, wa_, wd1_, wd2_
@@ -1190,7 +1190,7 @@ def q_ss(
     q0 = 2 * Plas * Q0 / (h * wL * Om * abs(Den)**2)
     return np.real_if_close(q0)
 
-def q_ss_lin(
+def q_ss_two_mode_lin(
     Om, Plas,
     ga,
     gka0, gkd10, gkd20,
@@ -1362,7 +1362,7 @@ def g_effs(
 
     Assumes h is defined globally.
 
-    Also assumes q_ss, a_ss, d1_ss, d2_ss
+    Also assumes q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode
     are already defined.
     """
 
@@ -1370,7 +1370,7 @@ def g_effs(
     a_las = sqrt(Plas/(h*wL))*exp(1j*thlas)
 
     # Steady-state fields at the effective parameters
-    ass = a_ss(
+    ass = a_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1379,7 +1379,7 @@ def g_effs(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss(
+    d1ss = d1_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1388,7 +1388,7 @@ def g_effs(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss(
+    d2ss = d2_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1554,7 +1554,7 @@ def Xmeff(
     # ----------------------------
     # Steady-state fields
     # ----------------------------
-    ass = a_ss(
+    ass = a_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1562,7 +1562,7 @@ def Xmeff(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss(
+    d1ss = d1_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1570,7 +1570,7 @@ def Xmeff(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss(
+    d2ss = d2_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1757,7 +1757,7 @@ def Xopt_inv_components(
         Xopti_ad2,
         Xopti_d1d2
 
-    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
+    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
     """
 
     # ----------------------------
@@ -1811,7 +1811,7 @@ def Xopt_inv_components(
     # ----------------------------
     # Steady-state fields
     # ----------------------------
-    ass = a_ss(
+    ass = a_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1819,7 +1819,7 @@ def Xopt_inv_components(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss(
+    d1ss = d1_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1827,7 +1827,7 @@ def Xopt_inv_components(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss(
+    d2ss = d2_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2006,7 +2006,7 @@ def Xopt_inv(
 
         Xopt_inv = chi_opt^{-1}
 
-    Assumes h, q_ss, a_ss, d1_ss, d2_ss are already defined.
+    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are already defined.
     """
 
     # ------------------------------------------------------------
@@ -2060,7 +2060,7 @@ def Xopt_inv(
     # ------------------------------------------------------------
     # Steady-state fields
     # ------------------------------------------------------------
-    ass = a_ss(
+    ass = a_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2068,7 +2068,7 @@ def Xopt_inv(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss(
+    d1ss = d1_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2076,7 +2076,7 @@ def Xopt_inv(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss(
+    d2ss = d2_ss_2mode(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2301,7 +2301,7 @@ def A_Lyapunov(
             delta p
         )
 
-    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
+    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
     """
 
     # ------------------------------------------------------------
@@ -2314,7 +2314,7 @@ def A_Lyapunov(
     # ------------------------------------------------------------
     # Steady-state fields
     # ------------------------------------------------------------
-    ass = a_ss(
+    ass = a_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2323,7 +2323,7 @@ def A_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss(
+    d1ss = d1_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2332,7 +2332,7 @@ def A_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss(
+    d2ss = d2_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2595,11 +2595,11 @@ def B_Lyapunov(
             delta p
         )
 
-    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
+    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
     """
 
     # Steady-state fields
-    ass = a_ss(
+    ass = a_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2608,7 +2608,7 @@ def B_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss(
+    d1ss = d1_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2617,7 +2617,7 @@ def B_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss(
+    d2ss = d2_ss_2mode(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2752,177 +2752,6 @@ def B_Lyapunov(
 
     return np.real_if_close(B)
 
-def solve_Lyapunov_linsys(
-    Nth,
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL, wa, wd1, wd2
-):
-    """
-    Two-mode Lyapunov solver.
-
-    Quadrature ordering:
-        Y = (
-            delta X_a,
-            delta P_a,
-            delta X_d1,
-            delta P_d1,
-            delta X_d2,
-            delta P_d2,
-            delta q,
-            delta p
-        )
-
-    The covariance matrix V obeys:
-
-        A V + V A^T + B = 0.
-
-    Returns:
-        V11, V12, ..., V88
-
-    as the upper-triangular entries of the 8x8 covariance matrix.
-    """
-
-    A = A_Lyapunov(
-        Om,
-        Plas,
-        ga,
-        gam,
-        gka0, gkd10, gkd20,
-        gwa0, gwd10, gwd20,
-        ka, kd1, kd2,
-        lbd1, lbd2,
-        thlas,
-        wL, wa, wd1, wd2
-    )
-
-    B = B_Lyapunov(
-        Nth,
-        Om,
-        Plas,
-        ga,
-        gam,
-        gka0, gkd10, gkd20,
-        gwa0, gwd10, gwd20,
-        ka, kd1, kd2,
-        lbd1, lbd2,
-        thlas,
-        wL, wa, wd1, wd2
-    )
-
-    # SciPy solves A V + V A^T = Q.
-    # Since our equation is A V + V A^T + B = 0,
-    # we use Q = -B.
-    V = scilin.solve_continuous_lyapunov(A, -B)
-
-    V = np.real_if_close(V)
-
-    return (
-        V[0, 0],
-        V[0, 1], V[0, 2], V[0, 3], V[0, 4], V[0, 5], V[0, 6], V[0, 7],
-
-        V[1, 1], V[1, 2], V[1, 3], V[1, 4], V[1, 5], V[1, 6], V[1, 7],
-
-        V[2, 2], V[2, 3], V[2, 4], V[2, 5], V[2, 6], V[2, 7],
-
-        V[3, 3], V[3, 4], V[3, 5], V[3, 6], V[3, 7],
-
-        V[4, 4], V[4, 5], V[4, 6], V[4, 7],
-
-        V[5, 5], V[5, 6], V[5, 7],
-
-        V[6, 6], V[6, 7],
-
-        V[7, 7],
-    )
-
-
-def neff_Lyapunov_linsys(
-    Nth,
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL, wa, wd1, wd2
-):
-    """
-    Two-mode photons and phonon numbers in the fluctuations.
-
-    Returns:
-        n_a, n_d1, n_d2, n_mec
-
-    where
-
-        n_a   = <delta a^dagger delta a>
-        n_d1  = <delta d1^dagger delta d1>
-        n_d2  = <delta d2^dagger delta d2>
-        n_mec = final phonon number
-
-    Quadrature ordering:
-        X_a, P_a, X_d1, P_d1, X_d2, P_d2, q, p
-    """
-
-    (
-        V11,
-        V12, V13, V14, V15, V16, V17, V18,
-
-        V22, V23, V24, V25, V26, V27, V28,
-
-        V33, V34, V35, V36, V37, V38,
-
-        V44, V45, V46, V47, V48,
-
-        V55, V56, V57, V58,
-
-        V66, V67, V68,
-
-        V77, V78,
-
-        V88,
-    ) = solve_Lyapunov_linsys(
-        Nth,
-        Om,
-        Plas,
-        ga,
-        gam,
-        gka0, gkd10, gkd20,
-        gwa0, gwd10, gwd20,
-        ka, kd1, kd2,
-        lbd1, lbd2,
-        thlas,
-        wL, wa, wd1, wd2
-    )
-
-    # Photon number of cavity mode a:
-    # n_a = (V_XaXa + V_PaPa - 1)/2
-    n_a = (V11 + V22 - 1)/2
-
-    # Photon number of Fano mode d1:
-    # n_d1 = (V_Xd1Xd1 + V_Pd1Pd1 - 1)/2
-    n_d1 = (V33 + V44 - 1)/2
-
-    # Photon number of Fano mode d2:
-    # n_d2 = (V_Xd2Xd2 + V_Pd2Pd2 - 1)/2
-    n_d2 = (V55 + V66 - 1)/2
-
-    # Final phonon number:
-    # n_mec = (V_qq + V_pp - 1)/2
-    n_mec = (V77 + V88 - 1)/2
-
-    return n_a, n_d1, n_d2, n_mec
-
 def neff_2d(
     Nth,
     Om,
@@ -2939,9 +2768,9 @@ def neff_2d(
     threads=8
 ):
     """
-    Two-mode final phonon number in the fluctuations.
+    Two-mode phonon number in the fluctuations.
 
-    Parallel calculation of neff_Lyapunov_linsys_2mode()[3]
+    Parallel calculation of neff_Lyapunov_linsys_2mode()[2]
     for 2D arrays wL and Plas.
 
     Inputs:
@@ -2950,13 +2779,6 @@ def neff_2d(
 
     Returns:
         neff : 2D array with same shape as wL and Plas
-
-    Assumes:
-        neff_Lyapunov_linsys_2mode returns
-
-            n_a, n_d1, n_d2, n_mec
-
-        so the final phonon number is index 3.
     """
 
     neff = np.zeros_like(wL, dtype=float)
@@ -2965,7 +2787,6 @@ def neff_2d(
     with Pool(threads) as pool:
         for i in range(neff.shape[0]):
             ps.append([])
-
             for j in range(neff.shape[1]):
                 ps[i].append(
                     pool.apply_async(
@@ -2989,348 +2810,11 @@ def neff_2d(
 
         for i in range(neff.shape[0]):
             for j in range(neff.shape[1]):
-                result = ps[i][j].get()
-
-                # result = (n_a, n_d1, n_d2, n_mec)
-                neff[i, j] = np.real(np.asarray(result[3])).item()
+                neff[i, j] = ps[i][j].get()[2][0]
 
     return neff
 
 
-# --------------------- stability analysis  -------------------------
-
-
-# ============================================================
-# Generic Hurwitz helper
-# ============================================================
-def _hurwitz_matrix_from_coeffs(a):
-    """
-    Build Hurwitz matrix for the monic polynomial
-
-        p(s) = s^n + a1 s^(n-1) + a2 s^(n-2) + ... + an.
-
-    Input:
-        a = [a1, a2, ..., an]
-
-    Hurwitz matrix starts as:
-
-        [a1  a3  a5  ...]
-        [1   a2  a4  ...]
-        [0   a1  a3  ...]
-        [0   1   a2  ...]
-        ...
-
-    Returns:
-        H, shape (n,n)
-    """
-    a = np.asarray(a, dtype=float)
-    n = len(a)
-
-    # a0 = 1 for monic polynomial
-    coeff = {0: 1.0}
-    for k in range(1, n + 1):
-        coeff[k] = a[k - 1]
-
-    H = np.zeros((n, n), dtype=float)
-
-    for i in range(n):
-        for j in range(n):
-            # 0-index version of a_{2j-i}
-            idx = 2*(j + 1) - (i + 1)
-
-            if 0 <= idx <= n:
-                H[i, j] = coeff[idx]
-            else:
-                H[i, j] = 0.0
-
-    return H
-
-
-def _RH_ratios_from_A(A):
-    """
-    Generic Routh-Hurwitz ratios for an n x n drift matrix A.
-
-    For the characteristic polynomial
-
-        p(s) = det(s I - A)
-             = s^n + a1 s^(n-1) + ... + an,
-
-    this returns
-
-        Delta_2/Delta_1,
-        Delta_3/Delta_2,
-        ...,
-        Delta_{n-1}/Delta_{n-2},
-        a_n
-
-    For the two-mode 8x8 case, this gives
-
-        r2, r3, r4, r5, r6, r7, a8.
-
-    This generalizes the old one-mode 6x6 output
-
-        r2, r3, r4, r5, a6.
-    """
-    eigs = np.linalg.eigvals(A)
-
-    # np.poly gives coefficients in descending powers:
-    # [1, a1, a2, ..., an]
-    coeffs = np.poly(eigs)
-    coeffs = np.real_if_close(coeffs, tol=1000)
-
-    a = np.real(coeffs[1:])
-    n = len(a)
-
-    H = _hurwitz_matrix_from_coeffs(a)
-
-    # Hurwitz determinants Delta_k
-    Delta = {}
-    for k in range(1, n + 1):
-        Delta[k] = np.linalg.det(H[:k, :k])
-
-    ratios = []
-
-    # r2 = Delta_2/Delta_1, ..., r_{n-1} = Delta_{n-1}/Delta_{n-2}
-    for k in range(2, n):
-        ratios.append(Delta[k] / Delta[k - 1])
-
-    # Final RH condition for monic polynomial is a_n > 0.
-    # This matches your old one-mode function returning a6 at the end.
-    ratios.append(a[-1])
-
-    return tuple(np.real_if_close(ratios))
-
-
-# ============================================================
-# Two-mode Routh-Hurwitz stability criterion
-# ============================================================
-def RH_criterion(
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL, wa, wd1, wd2
-):
-    """
-    Two-mode Routh-Hurwitz stability criterion.
-
-    The two-mode A_Lyapunov matrix is 8x8, so the characteristic
-    polynomial is degree 8:
-
-        p(s) = s^8 + a1 s^7 + a2 s^6 + ... + a8.
-
-    Returns:
-        r2, r3, r4, r5, r6, r7, a8
-
-    where
-
-        r_k = Delta_k / Delta_{k-1}
-
-    are Hurwitz determinant ratios.
-
-    Stability requires all returned quantities to be positive.
-    """
-    A = A_Lyapunov(
-        Om,
-        Plas,
-        ga,
-        gam,
-        gka0, gkd10, gkd20,
-        gwa0, gwd10, gwd20,
-        ka, kd1, kd2,
-        lbd1, lbd2,
-        thlas,
-        wL, wa, wd1, wd2
-    )
-
-    return _RH_ratios_from_A(A)
-
-
-def RH_criterion_wL(
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL, wa, wd1, wd2
-):
-    """
-    Two-mode Routh-Hurwitz criterion for 1D array wL.
-
-    Returns array with shape:
-
-        (7, len(wL))
-
-    corresponding to
-
-        r2, r3, r4, r5, r6, r7, a8.
-    """
-    return np.array([
-        RH_criterion(
-            Om,
-            Plas,
-            ga,
-            gam,
-            gka0, gkd10, gkd20,
-            gwa0, gwd10, gwd20,
-            ka, kd1, kd2,
-            lbd1, lbd2,
-            thlas,
-            w,
-            wa, wd1, wd2
-        )
-        for w in wL
-    ]).T
-
-
-def RH_criterion_Plas(
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL, wa, wd1, wd2
-):
-    """
-    Two-mode Routh-Hurwitz criterion for 1D array Plas.
-
-    Returns array with shape:
-
-        (7, len(Plas))
-
-    corresponding to
-
-        r2, r3, r4, r5, r6, r7, a8.
-    """
-    return np.array([
-        RH_criterion(
-            Om,
-            pl,
-            ga,
-            gam,
-            gka0, gkd10, gkd20,
-            gwa0, gwd10, gwd20,
-            ka, kd1, kd2,
-            lbd1, lbd2,
-            thlas,
-            wL,
-            wa, wd1, wd2
-        )
-        for pl in Plas
-    ]).T
-
-
-# ============================================================
-# Determinant of two-mode Lyapunov drift matrix
-# ============================================================
-def detA(
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL, wa, wd1, wd2
-):
-    """
-    Determinant of two-mode A_Lyapunov.
-
-    For the 8x8 two-mode drift matrix,
-
-        det(A) = a8
-
-    up to the sign convention of the characteristic polynomial.
-    """
-    A = A_Lyapunov(
-        Om,
-        Plas,
-        ga,
-        gam,
-        gka0, gkd10, gkd20,
-        gwa0, gwd10, gwd20,
-        ka, kd1, kd2,
-        lbd1, lbd2,
-        thlas,
-        wL, wa, wd1, wd2
-    )
-
-    return np.real_if_close(np.linalg.det(A))
-
-
-def detA_2d(
-    Om,
-    Plas,
-    ga,
-    gam,
-    gka0, gkd10, gkd20,
-    gwa0, gwd10, gwd20,
-    ka, kd1, kd2,
-    lbd1, lbd2,
-    thlas,
-    wL,
-    wa, wd1, wd2,
-    threads=8
-):
-    """
-    Determinant of two-mode A_Lyapunov.
-
-    Parallel calculation for 2D arrays wL and Plas.
-
-    Inputs:
-        wL   : 2D array
-        Plas : 2D array
-
-    Returns:
-        r8 : 2D array with same shape as wL and Plas.
-    """
-    r8 = np.zeros_like(wL, dtype=float)
-    ps = []
-
-    with Pool(threads) as pool:
-        for i in range(r8.shape[0]):
-            ps.append([])
-
-            for j in range(r8.shape[1]):
-                ps[i].append(
-                    pool.apply_async(
-                        detA,
-                        (
-                            Om,
-                            Plas[i, j],
-                            ga,
-                            gam,
-                            gka0, gkd10, gkd20,
-                            gwa0, gwd10, gwd20,
-                            ka, kd1, kd2,
-                            lbd1, lbd2,
-                            thlas,
-                            wL[i, j],
-                            wa, wd1, wd2
-                        )
-                    )
-                )
-
-        for i in range(r8.shape[0]):
-            for j in range(r8.shape[1]):
-                r8[i, j] = np.real(np.asarray(ps[i][j].get())).item()
-
-    return r8
 
 # --------------------- bare optical two-mode analysis -------------------------
 
