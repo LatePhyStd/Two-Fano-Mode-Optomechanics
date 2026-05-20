@@ -592,7 +592,7 @@ def dTs(
     eps=1e-6
 ):
     """
-    Numerical derivatives of the two-mode transmission T = |t_CM_2mode|^2.
+    Numerical derivatives of the two-mode transmission T = |t_CM|^2.
 
     Returns:
         dTdDa, dTdDd1, dTdDd2, dTdka, dTdkd1, dTdkd2, T
@@ -609,7 +609,7 @@ def dTs(
     """
 
     def T_val(ga_, ka_, kd1_, kd2_, lbd1_, lbd2_, wL_, wa_, wd1_, wd2_):
-        t = t_CM_2mode(
+        t = t_CM(
             ga_, ka_, kd1_, kd2_,
             lbd1_, lbd2_,
             wL_, wa_, wd1_, wd2_
@@ -1362,7 +1362,7 @@ def g_effs(
 
     Assumes h is defined globally.
 
-    Also assumes q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode
+    Also assumes q_ss, a_ss, d1_ss, d2_ss
     are already defined.
     """
 
@@ -1370,7 +1370,7 @@ def g_effs(
     a_las = sqrt(Plas/(h*wL))*exp(1j*thlas)
 
     # Steady-state fields at the effective parameters
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1379,7 +1379,7 @@ def g_effs(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1388,7 +1388,7 @@ def g_effs(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -1554,7 +1554,7 @@ def Xmeff(
     # ----------------------------
     # Steady-state fields
     # ----------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1562,7 +1562,7 @@ def Xmeff(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1570,7 +1570,7 @@ def Xmeff(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1757,7 +1757,7 @@ def Xopt_inv_components(
         Xopti_ad2,
         Xopti_d1d2
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
     """
 
     # ----------------------------
@@ -1811,7 +1811,7 @@ def Xopt_inv_components(
     # ----------------------------
     # Steady-state fields
     # ----------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1819,7 +1819,7 @@ def Xopt_inv_components(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -1827,7 +1827,7 @@ def Xopt_inv_components(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2006,7 +2006,7 @@ def Xopt_inv(
 
         Xopt_inv = chi_opt^{-1}
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are already defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are already defined.
     """
 
     # ------------------------------------------------------------
@@ -2060,7 +2060,7 @@ def Xopt_inv(
     # ------------------------------------------------------------
     # Steady-state fields
     # ------------------------------------------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2068,7 +2068,7 @@ def Xopt_inv(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2076,7 +2076,7 @@ def Xopt_inv(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas, ga,
         ka, kd1, kd2,
         lbd1, lbd2,
@@ -2254,7 +2254,7 @@ def dOm_Gopt(
         Gopt = -Om Im[Xopt_inv]/w
     """
 
-    Xopti = Xopt_inv_2mode(
+    Xopti = Xopt_inv(
         Om,
         Plas,
         ga,
@@ -2301,7 +2301,7 @@ def A_Lyapunov(
             delta p
         )
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
     """
 
     # ------------------------------------------------------------
@@ -2314,7 +2314,7 @@ def A_Lyapunov(
     # ------------------------------------------------------------
     # Steady-state fields
     # ------------------------------------------------------------
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2323,7 +2323,7 @@ def A_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2332,7 +2332,7 @@ def A_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2595,11 +2595,11 @@ def B_Lyapunov(
             delta p
         )
 
-    Assumes h, q_ss, a_ss_2mode, d1_ss_2mode, d2_ss_2mode are defined.
+    Assumes h, q_ss, a_ss, d1_ss, d2_ss are defined.
     """
 
     # Steady-state fields
-    ass = a_ss_2mode(
+    ass = a_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2608,7 +2608,7 @@ def B_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d1ss = d1_ss_2mode(
+    d1ss = d1_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2617,7 +2617,7 @@ def B_Lyapunov(
         wL, wa, wd1, wd2
     )
 
-    d2ss = d2_ss_2mode(
+    d2ss = d2_ss(
         Plas,
         ga,
         ka, kd1, kd2,
@@ -2770,7 +2770,7 @@ def neff_2d(
     """
     Two-mode phonon number in the fluctuations.
 
-    Parallel calculation of neff_Lyapunov_linsys_2mode()[2]
+    Parallel calculation of neff_Lyapunov_linsys()[2]
     for 2D arrays wL and Plas.
 
     Inputs:
@@ -2790,7 +2790,7 @@ def neff_2d(
             for j in range(neff.shape[1]):
                 ps[i].append(
                     pool.apply_async(
-                        neff_Lyapunov_linsys_2mode,
+                        neff_Lyapunov_linsys,
                         (
                             Nth,
                             Om,
